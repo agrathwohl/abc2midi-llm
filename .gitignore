@@ -1,0 +1,20 @@
+# Build artifacts
+*.o
+abc2midi
+midi2abc
+abc2abc
+mftext
+yaps
+midicopy
+abcmatch
+midistats
+
+# Autoconf generated
+Makefile
+config.h
+config.status
+config.log
+autom4te.cache/
+
+# Nix
+result
