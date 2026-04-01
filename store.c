@@ -2417,10 +2417,12 @@ static void event_pneuma(char *s)
     event_warning(errmsg);
   }
 
-  /* store as a TEXT feature with "PNEUMA:" prefix so it becomes a
-   * MIDI text meta-event in the output file */
-  snprintf(msg, sizeof(msg), "PNEUMA:%s", s);
-  textfeature(TEXT, msg);
+  /* store as DYNAMIC feature with "pneuma" prefix so it routes through
+   * dodeferred() at generation time for native timing transforms.
+   * Use command (already parsed) + p (remainder) since s has leading space
+   * and readstr() only copies isalpha chars. */
+  snprintf(msg, sizeof(msg), "pneuma%s%s", command, p);
+  textfeature(DYNAMIC, msg);
 
   if (verbose > 1) printf("event_pneuma: %s\n", s);
 }

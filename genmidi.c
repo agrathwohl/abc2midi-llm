@@ -51,6 +51,7 @@
 #define strchr index
 #endif
 #include <stdlib.h>
+#include <math.h>
 #define MAX(A, B) ((A) > (B) ? (A) : (B))
 
 void   single_note_tuning_change(int midikey, float midipitch);
@@ -233,6 +234,15 @@ int trim_denom = 5;
 int expand=0; /* overlap note past next note */
 int expand_num = 0;
 int expand_denom = 5;
+
+/* Pneuma: temporal liberation state */
+int pneuma_humanize = 0;          /* ±N tick jitter on note onsets */
+double pneuma_heartbeat_var = 0.0; /* sinusoidal breathing variance (0.0-1.0) */
+double pneuma_drift_rate = 0.0;   /* drift rate per beat */
+double pneuma_drift_accum = 0.0;  /* running drift accumulator */
+int pneuma_free = 0;              /* free time mode on/off */
+double pneuma_rubato[16];         /* per-beat stretch factors */
+int pneuma_rubato_len = 0;        /* number of rubato entries */
 
 /* channel 10 drum handling */
 int drum_map[256];
@@ -1650,6 +1660,13 @@ int n;
   else if (single_velocity_inc != 0)
      vel = apply_velocity_increment_for_one_note (vel);
 
+  /* Pneuma humanize: jitter note onset */
+  if (pneuma_humanize > 0) {
+      int jitter = (int)((ranfrac() - 0.5) * 2.0 * pneuma_humanize);
+      delta_time += jitter;
+      if (delta_time < 0) delta_time = 0;
+  }
+
   if (channel == 9) noteon_data(pitch[n],bentpitch[n],channel,vel);
   else noteon_data(pitch[n] + transpose + global_transpose, bentpitch[n], channel, vel);
 }
@@ -2358,6 +2375,49 @@ int noteson;
       done = 1;
       }
 
+  /* Pneuma: temporal liberation directives.
+   * Stored as "pneumahumanize 12", "pneumaheartbeat 0.04", etc.
+   * readstr() only copies isalpha chars so no underscore in prefix. */
+  else if (strcmp(command, "pneumahumanize") == 0) {
+      skipspace(&p);
+      pneuma_humanize = readnump(&p);
+      done = 1;
+  }
+
+  else if (strcmp(command, "pneumaheartbeat") == 0) {
+      skipspace(&p);
+      sscanf(p, "%lf", &pneuma_heartbeat_var);
+      done = 1;
+  }
+
+  else if (strcmp(command, "pneumadrift") == 0) {
+      skipspace(&p);
+      sscanf(p, "%lf", &pneuma_drift_rate);
+      pneuma_drift_accum = 0.0;
+      done = 1;
+  }
+
+  else if (strcmp(command, "pneumafree") == 0) {
+      char mode[20];
+      skipspace(&p);
+      readstr(mode, &p, 20);
+      if (strcmp(mode, "start") == 0) pneuma_free = 1;
+      else if (strcmp(mode, "end") == 0) pneuma_free = 0;
+      done = 1;
+  }
+
+  else if (strcmp(command, "pneumarubato") == 0) {
+      skipspace(&p);
+      pneuma_rubato_len = 0;
+      while (*p != '\0' && pneuma_rubato_len < 16) {
+          sscanf(p, "%lf", &pneuma_rubato[pneuma_rubato_len]);
+          pneuma_rubato_len++;
+          while (*p != '\0' && *p != ' ') p++;
+          skipspace(&p);
+      }
+      done = 1;
+  }
+
   if (done == 0) {
     char errmsg[80];
     sprintf(errmsg, "%%%%MIDI command \"%s\" not recognized",command);
@@ -2379,6 +2439,57 @@ int a, b, c;
   reduce(&err_num, &err_denom);
   dt = dt + (err_num/err_denom);
   err_num = err_num%err_denom;
+
+  /* --- Pneuma transforms --- */
+
+  /* Heartbeat: sinusoidal modulation based on position in piece.
+   * Breathing cycle = 8 quarter notes. Scale dt by sine factor. */
+  if (pneuma_heartbeat_var > 0.0) {
+      double cycle = 8.0 * division;
+      double phase = 2.0 * M_PI * (double)tracklen / cycle;
+      double scale = 1.0 + pneuma_heartbeat_var * sin(phase);
+      dt = (int)(dt * scale);
+      if (dt < 1) dt = 1;
+  }
+
+  /* Drift: random walk that accumulates per beat.
+   * Advances the accumulator proportional to dt. */
+  if (pneuma_drift_rate > 0.0) {
+      double step = pneuma_drift_rate * (double)dt;
+      pneuma_drift_accum += (ranfrac() - 0.5) * 2.0 * step;
+      /* soft clamp at ±4% of a quarter note */
+      {
+          double max_drift = 0.04 * division;
+          if (pneuma_drift_accum > max_drift) pneuma_drift_accum = max_drift;
+          if (pneuma_drift_accum < -max_drift) pneuma_drift_accum = -max_drift;
+      }
+      dt += (int)pneuma_drift_accum;
+      if (dt < 1) dt = 1;
+  }
+
+  /* Free time: treat durations as proportional suggestions.
+   * Apply random scaling ±20% to each duration. */
+  if (pneuma_free) {
+      double scale = 0.8 + ranfrac() * 0.4;
+      dt = (int)(dt * scale);
+      if (dt < 1) dt = 1;
+  }
+
+  /* Rubato: per-beat stretch factors within the bar. */
+  if (pneuma_rubato_len > 0 && barsize > 0) {
+      int beat_pos = 0;
+      if (bar_denom != 0) {
+          beat_pos = (bar_num * pneuma_rubato_len) / (bar_denom * barsize);
+      }
+      if (beat_pos >= pneuma_rubato_len) beat_pos = pneuma_rubato_len - 1;
+      if (beat_pos >= 0) {
+          dt = (int)(dt * pneuma_rubato[beat_pos]);
+          if (dt < 1) dt = 1;
+      }
+  }
+
+  /* --- End Pneuma transforms --- */
+
   timestep(dt, 0);
 }
 
@@ -2725,6 +2836,12 @@ static void starttrack(int tracknum)
   beataccents = 1;
   nbeats = 0;
   transpose = 0;
+  pneuma_humanize = 0;
+  pneuma_heartbeat_var = 0.0;
+  pneuma_drift_rate = 0.0;
+  pneuma_drift_accum = 0.0;
+  pneuma_free = 0;
+  pneuma_rubato_len = 0;
 /* make sure meter is reinitialized for every track
  * in case it was changed in the middle of the last track */
   set_meter(header_time_num,header_time_denom);

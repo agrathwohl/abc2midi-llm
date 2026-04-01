@@ -1,22 +1,92 @@
-### abcMIDI package
+# abcMIDI
 
-abcMIDI is a package of programs written in C for handling [abc music notation](http://abcnotation.com/) files. The software was created by James Allwright in the early 1990 and presently maintained by Seymour Shlien. It initially included the following programs:
+abcMIDI is a package of programs written in C for handling [abc music notation](http://abcnotation.com/) files. The software was created by James Allwright in the early 1990s and is presently maintained by Seymour Shlien.
 
-1. abc2midi for converting an abc file to a midi file,
-2. abc2abc for transposing abc notation to another key signature,
-3. midi2abc for creating an abc file from a midi file,
-4. yaps for producing a PostScript file displaying the abc file in common music notation and,
-5. mftext for creating a text representation of a midi file.
+This fork adds new LLM-centric MIDI directives that apply biological/organic timing transformations to MIDI output, making machine-generated music breathe.
 
-Seymour added two more programs:
+## Programs
 
-1. abcmatch for finding common elements in a collection of abc tunes and,
-2. midicopy for copying parts of a midi file to a new midi file.
+- **abc2midi** — convert abc notation to MIDI
+- **midi2abc** — create abc notation from a MIDI file
+- **abc2abc** — transpose abc notation to another key signature
+- **mftext** — create a text representation of a MIDI file
+- **yaps** — produce PostScript from abc notation
+- **midicopy** — copy parts of a MIDI file to a new MIDI file
+- **abcmatch** — find common elements in a collection of abc tunes
+- **midistats** — display statistics about a MIDI file
 
-Yaps has been superceded by [Jef Moine](http://moinejf.free.fr/) abcm2ps and abc2svg programs. Midi2abc has been expanded to include mftext and various other features for supporting the [runabc](https://ifdo.ca/~seymour/runabc/top.html) application. Abc2midi has numerous new features that are described in its own web page [abc2midi guide](https://abcmidi.sourceforge.io).
+## Building
 
-Components of the abcMIDI package are parts of numerous applications for creating and editing abc files. Compilations of these components for various operating systems can be found on [The ABC Plus Project](http://abcplus.sourceforge.net/) web page.
+### With Nix (recommended)
 
+```bash
+nix develop
+./configure
+make
+```
 
-The latest version of the abcMIDI package supported by James Allwright can be found can be found [here](http://abc.sourceforge.net/abcMIDI/original/). More recent versions can be found on [sourceforge](https://sourceforge.net/projects/abc/) and on the [runabc](https://ifdo.ca/~seymour/runabc/top.html) web page.
+### Without Nix
 
+Requires a C compiler (gcc or clang), GNU make, and autoconf.
+
+```bash
+./configure
+make
+```
+
+The build produces all binaries in the project root directory.
+
+## Usage
+
+```bash
+./abc2midi input.abc -o output.mid
+```
+
+See the [abc2midi guide](https://abcmidi.sourceforge.io) for full documentation of standard features.
+
+## Directive Extensions
+
+### %%PNEUMA — Temporal Liberation
+
+Pneuma directives apply organic timing variations to MIDI output. Instead of every note landing on an exact grid, Pneuma makes the output breathe — jitter, drift, sinusoidal tempo modulation, rubato, and free time.
+
+Place `%%PNEUMA` directives in the tune body. They take effect from that point forward in the track.
+
+| Directive            | Parameters                      | Effect                                                                                                |
+| -------------------- | ------------------------------- | ----------------------------------------------------------------------------------------------------- |
+| `%%PNEUMA humanize`  | `N` (integer ticks)             | Add random jitter of ±N ticks to note onsets                                                          |
+| `%%PNEUMA heartbeat` | `V` (float, 0.0–1.0)            | Sinusoidal tempo modulation modeling respiratory sinus arrhythmia. Breathing cycle = 8 quarter notes. |
+| `%%PNEUMA drift`     | `R` (float, e.g. 0.015)         | Cumulative random-walk timing drift per beat, soft-clamped at ±4% of a quarter note                   |
+| `%%PNEUMA free`      | `start` or `end`                | Toggle free time mode: durations become proportional suggestions with ±20% random scaling             |
+| `%%PNEUMA rubato`    | up to 16 space-separated floats | Per-beat stretch factors within the bar (e.g. `1.15 0.9 0.95 1.0`)                                    |
+
+### Example
+
+```abc
+X:1
+T:Pneuma Example
+M:4/4
+L:1/8
+Q:1/4=120
+K:C
+%%PNEUMA humanize 12
+%%PNEUMA heartbeat 0.04
+%%PNEUMA drift 0.015
+%%MIDI program 0
+CDEF GABc | cBAG FEDC |
+%%PNEUMA free start
+C4 E4 | G4 c4 |
+%%PNEUMA free end
+%%PNEUMA rubato 1.15 0.9 0.95 1.0
+CDEF GABc | cBAG FEDC |
+```
+
+Generate MIDI:
+
+```bash
+./abc2midi example.abc -o example.mid
+```
+
+## Upstream
+
+The original abcMIDI package is maintained at [sourceforge](https://sourceforge.net/projects/abc/) and on the [runabc](https://ifdo.ca/~seymour/runabc/top.html) web page.
