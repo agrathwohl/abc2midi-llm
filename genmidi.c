@@ -263,6 +263,13 @@ int gravity_vel_len = 0;
 double gravity_dur_weights[16];   /* duration multiplier per bar in phrase */
 int gravity_dur_len = 0;
 
+/* ARTICULATE: context-aware note length */
+double artic_repeated = 0.0;     /* duration scale for repeated pitches (0 = disabled) */
+double artic_leap = 0.0;         /* duration scale for notes after large intervals */
+double artic_phrase_end = 0.0;   /* duration scale for phrase-ending notes */
+double artic_staccato = 0.0;     /* duration scale for staccato notes */
+int artic_prev_pitch = -1;       /* previous pitch for interval detection */
+
 /* channel 10 drum handling */
 int drum_map[256];
 
@@ -2562,6 +2569,47 @@ int noteson;
       done = 1;
   }
 
+  else if (strcmp(command, "articulateauto") == 0) {
+      artic_repeated = 0.85;
+      artic_leap = 1.1;
+      artic_phrase_end = 1.15;
+      artic_staccato = 0.5;
+      done = 1;
+  }
+
+  else if (strcmp(command, "articulaterepeated") == 0) {
+      skipspace(&p);
+      sscanf(p, "%lf", &artic_repeated);
+      done = 1;
+  }
+
+  else if (strcmp(command, "articulateleap") == 0) {
+      skipspace(&p);
+      sscanf(p, "%lf", &artic_leap);
+      done = 1;
+  }
+
+  else if (strcmp(command, "articulatephraseend") == 0) {
+      skipspace(&p);
+      sscanf(p, "%lf", &artic_phrase_end);
+      done = 1;
+  }
+
+  else if (strcmp(command, "articulatestaccato") == 0) {
+      skipspace(&p);
+      sscanf(p, "%lf", &artic_staccato);
+      done = 1;
+  }
+
+  else if (strcmp(command, "articulateoff") == 0) {
+      artic_repeated = 0.0;
+      artic_leap = 0.0;
+      artic_phrase_end = 0.0;
+      artic_staccato = 0.0;
+      artic_prev_pitch = -1;
+      done = 1;
+  }
+
   if (done == 0) {
     char errmsg[80];
     sprintf(errmsg, "%%%%MIDI command \"%s\" not recognized",command);
@@ -3009,6 +3057,11 @@ static void starttrack(int tracknum)
   gravity_phrase_len = 0;
   gravity_vel_len = 0;
   gravity_dur_len = 0;
+  artic_repeated = 0.0; /* [ARTICULATE] 2026-04-01 */
+  artic_leap = 0.0;
+  artic_phrase_end = 0.0;
+  artic_staccato = 0.0;
+  artic_prev_pitch = -1;
 /* make sure meter is reinitialized for every track
  * in case it was changed in the middle of the last track */
   set_meter(header_time_num,header_time_denom);
@@ -3358,6 +3411,42 @@ int xtrack;
                }
             note_num = num[j];
             note_denom = denom[j];
+/* [ARTICULATE] 2026-04-01 */
+            if (notecount <= 1 && channel != 9 &&
+                (artic_repeated > 0.0 || artic_leap > 0.0 ||
+                 artic_phrase_end > 0.0 || artic_staccato > 0.0)) {
+              double artic_scale = 1.0;
+              int lookahead = j + 1;
+              /* staccato: store.c splits into NOTE(half) + REST(half) */
+              if (artic_staccato > 0.0 && feature[j+1] == REST
+                  && num[j] == num[j+1] && denom[j] == denom[j+1]) {
+                artic_scale *= artic_staccato * 2.0;
+                lookahead = j + 2;
+              }
+              /* repeated pitch shortening */
+              if (artic_repeated > 0.0 && artic_prev_pitch >= 0
+                  && pitch[j] == artic_prev_pitch) {
+                artic_scale *= artic_repeated;
+              }
+              /* leap extension: interval > perfect 4th (5 semitones) */
+              if (artic_leap > 0.0 && artic_prev_pitch >= 0) {
+                int interval = pitch[j] - artic_prev_pitch;
+                if (interval < 0) interval = -interval;
+                if (interval > 5) artic_scale *= artic_leap;
+              }
+              /* phrase-end extension: next event is rest or barline */
+              if (artic_phrase_end > 0.0
+                  && (feature[lookahead] == REST
+                      || feature[lookahead] == SINGLE_BAR
+                      || feature[lookahead] == DOUBLE_BAR)) {
+                artic_scale *= artic_phrase_end;
+              }
+              if (artic_scale != 1.0) {
+                note_num = (int)(note_num * artic_scale);
+                if (note_num < 1) note_num = 1;
+              }
+              artic_prev_pitch = pitch[j];
+            }
 /* turn off slurring prematurely to separate two slurs in a row */
             if (slurring && feature[j+2] == SLUR_OFF) slurring = 0; /* [SS] 2011-11-30 */
             if (trim && !slurring && !graceflag) {

@@ -2483,6 +2483,35 @@ static void event_breath(char *s)
   if (verbose > 1) printf("event_breath: %s\n", s);
 }
 
+/* [ARTICULATE] 2026-04-01 */
+static void event_articulate(char *s)
+{
+  char msg[256];
+  char command[40];
+  char *p;
+
+  p = s;
+  skipspace(&p);
+  readstr(command, &p, 40);
+
+  if (strcmp(command, "auto") != 0 &&
+      strcmp(command, "repeated") != 0 &&
+      strcmp(command, "leap") != 0 &&
+      strcmp(command, "phraseend") != 0 &&
+      strcmp(command, "staccato") != 0 &&
+      strcmp(command, "off") != 0) {
+    char errmsg[100];
+    snprintf(errmsg, sizeof(errmsg),
+             "%%%%ARTICULATE command \"%s\" not recognized", command);
+    event_warning(errmsg);
+  }
+
+  snprintf(msg, sizeof(msg), "articulate%s%s", command, p);
+  textfeature(DYNAMIC, msg);
+
+  if (verbose > 1) printf("event_articulate: %s\n", s);
+}
+
 /* [GRAVITY] 2026-03-31 */
 static void event_gravity(char *s)
 {
@@ -2543,6 +2572,12 @@ void event_specific(char *package, char *s, int in_I)
 /* [GRAVITY] 2026-03-31 */
   if (strcmp(package, "GRAVITY") == 0) {
      event_gravity(s);
+     return;
+     }
+
+/* [ARTICULATE] 2026-04-01 */
+  if (strcmp(package, "ARTICULATE") == 0) {
+     event_articulate(s);
      return;
      }
 
@@ -2721,6 +2756,12 @@ char *package, *s;
   /* [GRAVITY] 2026-03-31 */
   if (strcmp(package, "GRAVITY") == 0) {
     if (verbose > 1) printf("event_specific_in_header: GRAVITY %s (stored)\n", s);
+    return;
+  }
+
+  /* [ARTICULATE] 2026-04-01 */
+  if (strcmp(package, "ARTICULATE") == 0) {
+    if (verbose > 1) printf("event_specific_in_header: ARTICULATE %s (stored)\n", s);
     return;
   }
 

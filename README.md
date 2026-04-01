@@ -152,6 +152,19 @@ GRAVITY applies phrase-level dynamics so bars within a phrase have varying weigh
 | `%%GRAVITY agogic` | up to 16 space-separated floats | Duration multiplier per bar within phrase (e.g. `1.05 1.0 1.0 0.95`) |
 | `%%GRAVITY off`    |                                 | Disable gravity                                                     |
 
+### %%ARTICULATE — Context-Aware Note Length
+
+ARTICULATE adjusts note durations based on musical context. Repeated pitches are shortened, leaps are lengthened, phrase endings are sustained, and staccato notes are explicitly controlled. Factors compose multiplicatively when multiple conditions apply. Skips drum channel (ch 10) and only applies to standalone notes (not mid-chord).
+
+| Directive                 | Parameters        | Effect                                                                 |
+| ------------------------- | ----------------- | ---------------------------------------------------------------------- |
+| `%%ARTICULATE auto`       |                   | Enable all rules with defaults (repeated=0.85, leap=1.1, phraseend=1.15, staccato=0.5) |
+| `%%ARTICULATE repeated`   | `F` (float 0–2)  | Scale duration of repeated pitches by F (e.g. `0.8` = 80%)            |
+| `%%ARTICULATE leap`       | `F` (float 0–2)  | Scale duration of notes after intervals > perfect 4th by F            |
+| `%%ARTICULATE phraseend`  | `F` (float 0–2)  | Scale duration of notes before a rest or barline by F                  |
+| `%%ARTICULATE staccato`   | `F` (float 0–1)  | Set staccato note duration as ratio of original (e.g. `0.5` = 50%)    |
+| `%%ARTICULATE off`        |                   | Disable all articulation rules                                         |
+
 ## Upstream
 
 The original abcMIDI package is maintained at [sourceforge](https://sourceforge.net/projects/abc/) and on the [runabc](https://ifdo.ca/~seymour/runabc/top.html) web page.
