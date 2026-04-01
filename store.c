@@ -2427,6 +2427,89 @@ static void event_pneuma(char *s)
   if (verbose > 1) printf("event_pneuma: %s\n", s);
 }
 
+/* [ENSEMBLE] 2026-03-31 */
+static void event_ensemble(char *s)
+{
+  char msg[256];
+  char command[40];
+  char *p;
+
+  p = s;
+  skipspace(&p);
+  readstr(command, &p, 40);
+
+  if (strcmp(command, "offset") != 0 &&
+      strcmp(command, "jitter") != 0 &&
+      strcmp(command, "voice") != 0) {
+    char errmsg[100];
+    snprintf(errmsg, sizeof(errmsg),
+             "%%%%ENSEMBLE command \"%s\" not recognized", command);
+    event_warning(errmsg);
+  }
+
+  /* store as DYNAMIC with "ensemble" prefix for dodeferred() routing.
+   * Use command + p (not s) since s has leading space and
+   * readstr() only copies isalpha chars. */
+  snprintf(msg, sizeof(msg), "ensemble%s%s", command, p);
+  textfeature(DYNAMIC, msg);
+
+  if (verbose > 1) printf("event_ensemble: %s\n", s);
+}
+
+/* [BREATH] 2026-03-31 */
+static void event_breath(char *s)
+{
+  char msg[256];
+  char command[40];
+  char *p;
+
+  p = s;
+  skipspace(&p);
+  readstr(command, &p, 40);
+
+  if (strcmp(command, "auto") != 0 &&
+      strcmp(command, "bars") != 0 &&
+      strcmp(command, "after") != 0 &&
+      strcmp(command, "off") != 0) {
+    char errmsg[100];
+    snprintf(errmsg, sizeof(errmsg),
+             "%%%%BREATH command \"%s\" not recognized", command);
+    event_warning(errmsg);
+  }
+
+  snprintf(msg, sizeof(msg), "breath%s%s", command, p);
+  textfeature(DYNAMIC, msg);
+
+  if (verbose > 1) printf("event_breath: %s\n", s);
+}
+
+/* [GRAVITY] 2026-03-31 */
+static void event_gravity(char *s)
+{
+  char msg[256];
+  char command[40];
+  char *p;
+
+  p = s;
+  skipspace(&p);
+  readstr(command, &p, 40);
+
+  if (strcmp(command, "phrase") != 0 &&
+      strcmp(command, "weight") != 0 &&
+      strcmp(command, "agogic") != 0 &&
+      strcmp(command, "off") != 0) {
+    char errmsg[100];
+    snprintf(errmsg, sizeof(errmsg),
+             "%%%%GRAVITY command \"%s\" not recognized", command);
+    event_warning(errmsg);
+  }
+
+  snprintf(msg, sizeof(msg), "gravity%s%s", command, p);
+  textfeature(DYNAMIC, msg);
+
+  if (verbose > 1) printf("event_gravity: %s\n", s);
+}
+
 /* [JA] 2024.04.30 introducing in_I */
 void event_specific(char *package, char *s, int in_I)
 {
@@ -2442,6 +2525,24 @@ void event_specific(char *package, char *s, int in_I)
 /* [PNEUMA] 2026-03-31 */
   if (strcmp(package, "PNEUMA") == 0) {
      event_pneuma(s);
+     return;
+     }
+
+/* [ENSEMBLE] 2026-03-31 */
+  if (strcmp(package, "ENSEMBLE") == 0) {
+     event_ensemble(s);
+     return;
+     }
+
+/* [BREATH] 2026-03-31 */
+  if (strcmp(package, "BREATH") == 0) {
+     event_breath(s);
+     return;
+     }
+
+/* [GRAVITY] 2026-03-31 */
+  if (strcmp(package, "GRAVITY") == 0) {
+     event_gravity(s);
      return;
      }
 
@@ -2602,6 +2703,24 @@ char *package, *s;
   if (strcmp(package, "PNEUMA") == 0) {
     /* silently accept; will be processed when tune body starts */
     if (verbose > 1) printf("event_specific_in_header: PNEUMA %s (stored)\n", s);
+    return;
+  }
+
+  /* [ENSEMBLE] 2026-03-31 */
+  if (strcmp(package, "ENSEMBLE") == 0) {
+    if (verbose > 1) printf("event_specific_in_header: ENSEMBLE %s (stored)\n", s);
+    return;
+  }
+
+  /* [BREATH] 2026-03-31 */
+  if (strcmp(package, "BREATH") == 0) {
+    if (verbose > 1) printf("event_specific_in_header: BREATH %s (stored)\n", s);
+    return;
+  }
+
+  /* [GRAVITY] 2026-03-31 */
+  if (strcmp(package, "GRAVITY") == 0) {
+    if (verbose > 1) printf("event_specific_in_header: GRAVITY %s (stored)\n", s);
     return;
   }
 

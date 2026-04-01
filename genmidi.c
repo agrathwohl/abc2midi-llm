@@ -244,6 +244,25 @@ int pneuma_free = 0;              /* free time mode on/off */
 double pneuma_rubato[16];         /* per-beat stretch factors */
 int pneuma_rubato_len = 0;        /* number of rubato entries */
 
+/* ENSEMBLE: inter-voice timing offset */
+int ensemble_global_offset = 0;   /* global default offset in ticks */
+int ensemble_jitter = 0;          /* per-note random jitter in ±ticks */
+int ensemble_voice_offset = 0;    /* per-voice offset for current track */
+
+/* BREATH: automatic rest insertion at phrase boundaries */
+int breath_ticks = 0;             /* micro-rest in ticks (0 = disabled) */
+int breath_interval_bars = 0;     /* breath every N bars (0 = disabled) */
+int breath_after_dur = 0;         /* breath after notes > N ticks (0 = disabled) */
+int breath_pending = 0;           /* flag: insert breath before next noteon */
+int breath_prev_dt = 0;           /* previous delay dt for "after" mode */
+
+/* GRAVITY: phrase-level weight */
+int gravity_phrase_len = 0;       /* bars per phrase (0 = disabled) */
+double gravity_vel_weights[16];   /* velocity multiplier per bar in phrase */
+int gravity_vel_len = 0;
+double gravity_dur_weights[16];   /* duration multiplier per bar in phrase */
+int gravity_dur_len = 0;
+
 /* channel 10 drum handling */
 int drum_map[256];
 
@@ -556,6 +575,11 @@ int pass;
   if (bar_num > 0) {
     barno = barno + 1;
   };
+  /* BREATH: flag breath at bar boundary */
+  if (breath_ticks > 0 && breath_interval_bars > 0 &&
+      barno > 0 && barno % breath_interval_bars == 0) {
+    breath_pending = 1;
+  }
   bar_num = 0;
   bar_denom = 1;
   /* zero place in gchord sequence */
@@ -1667,6 +1691,40 @@ int n;
       if (delta_time < 0) delta_time = 0;
   }
 
+  /* ENSEMBLE: apply inter-voice timing offset */
+  {
+    int ens_shift = ensemble_global_offset + ensemble_voice_offset;
+    if (ensemble_jitter > 0) {
+      ens_shift += (int)((ranfrac() - 0.5) * 2.0 * ensemble_jitter);
+    }
+    if (ens_shift != 0) {
+      delta_time += ens_shift;
+      if (delta_time < 0) delta_time = 0;
+    }
+  }
+
+  /* BREATH: insert micro-rest before note at phrase boundaries */
+  if (breath_ticks > 0) {
+      if (breath_pending) {
+          delta_time += breath_ticks;
+          breath_pending = 0;
+      }
+      if (breath_after_dur > 0 && breath_prev_dt > breath_after_dur) {
+          delta_time += breath_ticks;
+      }
+      breath_prev_dt = 0;
+  }
+
+  /* GRAVITY: velocity weighting per bar within phrase */
+  if (gravity_vel_len > 0 && gravity_phrase_len > 0 && barno >= 0) {
+      int gpos = barno % gravity_phrase_len;
+      if (gpos < gravity_vel_len) {
+          vel = (int)(vel * gravity_vel_weights[gpos]);
+          if (vel > 127) vel = 127;
+          if (vel < 1) vel = 1;
+      }
+  }
+
   if (channel == 9) noteon_data(pitch[n],bentpitch[n],channel,vel);
   else noteon_data(pitch[n] + transpose + global_transpose, bentpitch[n], channel, vel);
 }
@@ -2418,6 +2476,92 @@ int noteson;
       done = 1;
   }
 
+  /* ENSEMBLE: inter-voice timing offset directives.
+   * Stored as "ensembleoffset N", "ensemblejitter N", "ensemblevoice N". */
+  else if (strcmp(command, "ensembleoffset") == 0) {
+      skipspace(&p);
+      ensemble_global_offset = readsnump(&p);
+      done = 1;
+  }
+
+  else if (strcmp(command, "ensemblejitter") == 0) {
+      skipspace(&p);
+      ensemble_jitter = readnump(&p);
+      done = 1;
+  }
+
+  else if (strcmp(command, "ensemblevoice") == 0) {
+      skipspace(&p);
+      ensemble_voice_offset = readsnump(&p);
+      done = 1;
+  }
+
+  /* BREATH: automatic rest insertion directives */
+  else if (strcmp(command, "breathauto") == 0) {
+      skipspace(&p);
+      breath_ticks = readnump(&p);
+      if (breath_interval_bars == 0) breath_interval_bars = 1;
+      done = 1;
+  }
+
+  else if (strcmp(command, "breathbars") == 0) {
+      skipspace(&p);
+      breath_interval_bars = readnump(&p);
+      done = 1;
+  }
+
+  else if (strcmp(command, "breathafter") == 0) {
+      skipspace(&p);
+      breath_after_dur = readnump(&p);
+      done = 1;
+  }
+
+  else if (strcmp(command, "breathoff") == 0) {
+      breath_ticks = 0;
+      breath_interval_bars = 0;
+      breath_after_dur = 0;
+      breath_pending = 0;
+      done = 1;
+  }
+
+  /* GRAVITY: phrase-level weight directives */
+  else if (strcmp(command, "gravityphrase") == 0) {
+      skipspace(&p);
+      gravity_phrase_len = readnump(&p);
+      done = 1;
+  }
+
+  else if (strcmp(command, "gravityweight") == 0) {
+      skipspace(&p);
+      gravity_vel_len = 0;
+      while (*p != '\0' && gravity_vel_len < 16) {
+          sscanf(p, "%lf", &gravity_vel_weights[gravity_vel_len]);
+          gravity_vel_len++;
+          while (*p != '\0' && *p != ' ') p++;
+          skipspace(&p);
+      }
+      done = 1;
+  }
+
+  else if (strcmp(command, "gravityagogic") == 0) {
+      skipspace(&p);
+      gravity_dur_len = 0;
+      while (*p != '\0' && gravity_dur_len < 16) {
+          sscanf(p, "%lf", &gravity_dur_weights[gravity_dur_len]);
+          gravity_dur_len++;
+          while (*p != '\0' && *p != ' ') p++;
+          skipspace(&p);
+      }
+      done = 1;
+  }
+
+  else if (strcmp(command, "gravityoff") == 0) {
+      gravity_phrase_len = 0;
+      gravity_vel_len = 0;
+      gravity_dur_len = 0;
+      done = 1;
+  }
+
   if (done == 0) {
     char errmsg[80];
     sprintf(errmsg, "%%%%MIDI command \"%s\" not recognized",command);
@@ -2489,6 +2633,18 @@ int a, b, c;
   }
 
   /* --- End Pneuma transforms --- */
+
+  /* GRAVITY: agogic (duration) weighting per bar within phrase */
+  if (gravity_dur_len > 0 && gravity_phrase_len > 0 && barno >= 0) {
+      int gpos = barno % gravity_phrase_len;
+      if (gpos < gravity_dur_len) {
+          dt = (int)(dt * gravity_dur_weights[gpos]);
+          if (dt < 1) dt = 1;
+      }
+  }
+
+  /* BREATH: capture dt for "after long note" detection */
+  breath_prev_dt = dt;
 
   timestep(dt, 0);
 }
@@ -2842,6 +2998,17 @@ static void starttrack(int tracknum)
   pneuma_drift_accum = 0.0;
   pneuma_free = 0;
   pneuma_rubato_len = 0;
+  ensemble_global_offset = 0;
+  ensemble_jitter = 0;
+  ensemble_voice_offset = 0;
+  breath_ticks = 0;
+  breath_interval_bars = 0;
+  breath_after_dur = 0;
+  breath_pending = 0;
+  breath_prev_dt = 0;
+  gravity_phrase_len = 0;
+  gravity_vel_len = 0;
+  gravity_dur_len = 0;
 /* make sure meter is reinitialized for every track
  * in case it was changed in the middle of the last track */
   set_meter(header_time_num,header_time_denom);

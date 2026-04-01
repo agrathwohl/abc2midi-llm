@@ -87,6 +87,71 @@ Generate MIDI:
 ./abc2midi example.abc -o example.mid
 ```
 
+### %%ENSEMBLE — Inter-Voice Timing Offset
+
+ENSEMBLE adds micro-timing offsets between voices so independently generated parts sound like musicians playing together rather than a single quantized block. In a real ensemble, the bass anticipates slightly, the lead lags expressively, and the drummer anchors the grid.
+
+Place `%%ENSEMBLE` directives in the tune header for global settings, and within voice sections for per-voice settings.
+
+| Directive            | Parameters                     | Effect                                                                                       |
+| -------------------- | ------------------------------ | -------------------------------------------------------------------------------------------- |
+| `%%ENSEMBLE offset`  | `N` (signed integer ticks)     | Global default onset shift applied to all voices. Positive = late, negative = early.         |
+| `%%ENSEMBLE jitter`  | `N` (integer ticks)            | Random per-note jitter of ±N ticks on top of voice offset. Stacks with Pneuma humanize.     |
+| `%%ENSEMBLE voice`   | `N` (signed integer ticks)     | Per-voice constant offset. Negative = pushes beat (driving), positive = lays back (expressive). |
+
+When both PNEUMA and ENSEMBLE are active:
+
+```
+final_onset = grid_position + pneuma_transforms + pneuma_humanize
+              + ensemble_global_offset + ensemble_voice_offset + ensemble_jitter
+```
+
+### Example
+
+```abc
+X:1
+T:Ensemble Example
+M:4/4
+L:1/8
+Q:1/4=120
+K:Dmin
+%%ENSEMBLE jitter 4
+[V:1 name="Lead"]
+%%MIDI program 0
+%%ENSEMBLE voice 8
+DEFG ABcd | dcBA GFED |
+[V:2 name="Bass"]
+%%MIDI program 39
+%%ENSEMBLE voice -6
+D,4 A,4 | D,4 F,4 |
+[V:3 name="Drums" clef=perc]
+%%MIDI channel 10
+%%ENSEMBLE voice 0
+C4 D4 C4 D4 | C4 D4 C4 D4 |
+```
+
+### %%BREATH — Automatic Rest Insertion
+
+BREATH inserts micro-rests at phrase boundaries so the piece breathes. LLM-generated output fills every beat relentlessly; BREATH separates phrases with brief silence.
+
+| Directive        | Parameters          | Effect                                                                      |
+| ---------------- | ------------------- | --------------------------------------------------------------------------- |
+| `%%BREATH auto`  | `N` (integer ticks) | Enable breath insertion of N ticks at every bar line (default interval = 1) |
+| `%%BREATH bars`  | `N` (integer)       | Insert breath only every N bars instead of every bar                        |
+| `%%BREATH after` | `N` (integer ticks) | Also insert breath after notes whose duration exceeds N ticks               |
+| `%%BREATH off`   |                     | Disable all breath insertion                                                |
+
+### %%GRAVITY — Phrase-Level Weight
+
+GRAVITY applies phrase-level dynamics so bars within a phrase have varying weight. Heavier openings, lighter middles, stretched endings — the shape of a spoken sentence applied to musical phrases.
+
+| Directive          | Parameters                      | Effect                                                              |
+| ------------------ | ------------------------------- | ------------------------------------------------------------------- |
+| `%%GRAVITY phrase` | `N` (integer bars)              | Set phrase length to N bars                                         |
+| `%%GRAVITY weight` | up to 16 space-separated floats | Velocity multiplier per bar within phrase (e.g. `1.15 1.0 0.9 0.85`) |
+| `%%GRAVITY agogic` | up to 16 space-separated floats | Duration multiplier per bar within phrase (e.g. `1.05 1.0 1.0 0.95`) |
+| `%%GRAVITY off`    |                                 | Disable gravity                                                     |
+
 ## Upstream
 
 The original abcMIDI package is maintained at [sourceforge](https://sourceforge.net/projects/abc/) and on the [runabc](https://ifdo.ca/~seymour/runabc/top.html) web page.
