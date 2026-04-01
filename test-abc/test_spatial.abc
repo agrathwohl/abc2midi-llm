@@ -1,0 +1,51 @@
+X:1
+T:Spatial Test - Three Groups at Distance
+M:4/4
+L:1/8
+Q:1/4=100
+K:Dmin
+%%SPATIAL group A voices 1,2
+%%SPATIAL group B voices 3,4
+%%SPATIAL group C voices 5,6
+%%SPATIAL delay A B 150
+%%SPATIAL delay A C 350
+%%SPATIAL delay B C 200
+%%ENSEMBLE jitter 3
+% Group A: close ensemble (lead + harmony) — reference point
+[V:1 name="Lead"]
+%%MIDI program 0
+%%ENSEMBLE voice 3
+DEFG ABcd | dcBA GFED | D2EF GABc | d8 |
+DEFG ABcd | dcBA GFED | D2EF GABc | d8 |
+[V:2 name="Harmony"]
+%%MIDI program 0
+%%ENSEMBLE voice -2
+z2FG z2cd | z2BA z2ED | z2EF z2Bc | d8 |
+z2FG z2cd | z2BA z2ED | z2EF z2Bc | d8 |
+% Group B: mid-distance (bass + pad) — 150ms behind A
+[V:3 name="Bass"]
+%%MIDI program 39
+%%ENSEMBLE voice 0
+D,4 A,4 | D,4 F,4 | D,4 A,4 | D,8 |
+D,4 A,4 | D,4 F,4 | D,4 E,4 | D,8 |
+[V:4 name="Pad"]
+%%MIDI program 89
+%%ENSEMBLE voice 5
+[DFA]8 | [DFA]8 | [DFA]8 | [DFA]8 |
+[DFA]8 | [DFA]8 | [DEA]8 | [DFA]8 |
+% Group C: far away (percussion + texture) — 350ms behind A
+[V:5 name="Marimba"]
+%%MIDI program 12
+%%ENSEMBLE voice 0
+D2D2 A2A2 | D2D2 F2F2 | D2D2 A2A2 | D2D2 D2D2 |
+D2D2 A2A2 | D2D2 F2F2 | D2D2 E2E2 | D4 z4 |
+[V:6 name="Drums" clef=perc]
+%%MIDI channel 10
+%%MIDI drummap C 36
+%%MIDI drummap D 38
+%%MIDI drummap E 42
+%%ENSEMBLE voice 0
+C2E2 D2E2 C2E2 D2E2 | C2E2 D2E2 C2E2 D2E2 |
+C2E2 D2E2 C2E2 D2E2 | C2E2 D2E2 C2E2 D2E2 |
+C2E2 D2E2 C2E2 D2E2 | C2E2 D2E2 C2E2 D2E2 |
+C2E2 D2E2 C2E2 D2E2 | C4 z2 C2 C4 z4 |

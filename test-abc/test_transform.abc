@@ -1,0 +1,42 @@
+X:1
+T:Transform Test - Algorithmic Voice Derivation
+M:4/4
+L:1/8
+Q:1/4=120
+K:Cmaj
+%%TRANSFORM source 1
+%%TRANSFORM target 2
+%%TRANSFORM retrograde
+%%TRANSFORM pitchshift 7
+%%TRANSFORM delay 1
+% V1: Original melody — source material
+[V:1 name="Original"]
+%%MIDI program 0
+CDEF GABc | dcBA GFED | C2E2 G2c2 | B2A2 G4 |
+CDEF GABc | dcBA GFED | C2E2 G2c2 | c8 |
+% V2: Retrograde + transposed up a 5th + 1 bar delay
+% (content will be replaced by TRANSFORM at render time)
+[V:2 name="Retrograde+5"]
+%%MIDI program 0
+z8 | z8 | z8 | z8 |
+z8 | z8 | z8 | z8 |
+% V3: Inversion around middle C
+[V:3 name="Inverted"]
+%%MIDI program 4
+z8 | z8 | z8 | z8 |
+z8 | z8 | z8 | z8 |
+% V4: Bass — untransformed anchor
+[V:4 name="Bass"]
+%%MIDI program 39
+C,4 G,4 | C,4 E,4 | C,4 G,4 | C,4 G,4 |
+C,4 G,4 | C,4 E,4 | C,4 G,4 | C,8 |
+% V5: Drums — untransformed anchor
+[V:5 name="Drums" clef=perc]
+%%MIDI channel 10
+%%MIDI drummap C 36
+%%MIDI drummap D 38
+%%MIDI drummap E 42
+C2E2 D2E2 C2E2 D2E2 | C2E2 D2E2 C2E2 D2E2 |
+C2E2 D2E2 C2E2 D2E2 | C2E2 D2E2 C2E2 D2E2 |
+C2E2 D2E2 C2E2 D2E2 | C2E2 D2E2 C2E2 D2E2 |
+C2E2 D2E2 C2E2 D2E2 | C4 z2 C2 C4 z4 |

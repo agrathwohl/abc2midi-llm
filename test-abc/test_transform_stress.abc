@@ -1,0 +1,121 @@
+X:1
+T:Transform Stress Test - Every Operation Combination
+C:Moltzart
+M:4/4
+L:1/8
+Q:1/4=108
+K:Dmin
+%%ENSEMBLE jitter 3
+% =====================================================
+% STRESS TEST: %%TRANSFORM directive
+% Tests every operation individually, then in combinations.
+% V1 is the source. V2-V9 are transforms of V1.
+% V10 is a control (no transform, same material manually).
+% =====================================================
+% --- V1: SOURCE MELODY ---
+[V:1 name="Source"]
+%%MIDI channel 1
+%%MIDI program 71
+%%ENSEMBLE voice 0
+%%PNEUMA heartbeat 0.03
+!mf! D2F2 A2d2 | f2d2 A2F2 | D2E2 F2G2 | A4 z4 |
+D2A2 d2f2 | a2f2 d2A2 | D2F2 A2^c2 | d8 |
+% --- V2: RETROGRADE only ---
+%%TRANSFORM source 1
+%%TRANSFORM target 2
+%%TRANSFORM retrograde
+[V:2 name="Retrograde"]
+%%MIDI channel 2
+%%MIDI program 0
+%%ENSEMBLE voice 5
+z8 | z8 | z8 | z8 |
+z8 | z8 | z8 | z8 |
+% --- V3: INVERT only (axis = D above middle C = MIDI 62) ---
+%%TRANSFORM source 1
+%%TRANSFORM target 3
+%%TRANSFORM invert
+%%TRANSFORM invertaxis 62
+[V:3 name="Inversion"]
+%%MIDI channel 3
+%%MIDI program 48
+%%ENSEMBLE voice -3
+z8 | z8 | z8 | z8 |
+z8 | z8 | z8 | z8 |
+% --- V4: PITCH SHIFT +7 (up a fifth) ---
+%%TRANSFORM source 1
+%%TRANSFORM target 4
+%%TRANSFORM pitchshift 7
+[V:4 name="Up 5th"]
+%%MIDI channel 4
+%%MIDI program 11
+%%ENSEMBLE voice 3
+z8 | z8 | z8 | z8 |
+z8 | z8 | z8 | z8 |
+% --- V5: PITCH SHIFT -12 (down an octave) ---
+%%TRANSFORM source 1
+%%TRANSFORM target 5
+%%TRANSFORM pitchshift -12
+[V:5 name="Down 8va"]
+%%MIDI channel 5
+%%MIDI program 39
+%%ENSEMBLE voice -5
+z8 | z8 | z8 | z8 |
+z8 | z8 | z8 | z8 |
+% --- V6: RETROGRADE + INVERT (retrograde inversion) ---
+%%TRANSFORM source 1
+%%TRANSFORM target 6
+%%TRANSFORM retrograde
+%%TRANSFORM invert
+%%TRANSFORM invertaxis 62
+[V:6 name="RI"]
+%%MIDI channel 6
+%%MIDI program 97
+%%ENSEMBLE voice 8
+z8 | z8 | z8 | z8 |
+z8 | z8 | z8 | z8 |
+% --- V7: RETROGRADE + PITCH SHIFT +5 + DELAY 2 bars ---
+%%TRANSFORM source 1
+%%TRANSFORM target 7
+%%TRANSFORM retrograde
+%%TRANSFORM pitchshift 5
+%%TRANSFORM delay 2
+[V:7 name="R+5+delay"]
+%%MIDI channel 7
+%%MIDI program 89
+%%ENSEMBLE voice 10
+z8 | z8 | z8 | z8 |
+z8 | z8 | z8 | z8 |
+% --- V8: TIMESCALE 2.0 (half speed = augmentation) ---
+%%TRANSFORM source 1
+%%TRANSFORM target 8
+%%TRANSFORM timescale 2.0
+[V:8 name="Augment"]
+%%MIDI channel 8
+%%MIDI program 52
+%%ENSEMBLE voice 12
+z8 | z8 | z8 | z8 |
+z8 | z8 | z8 | z8 |
+z8 | z8 | z8 | z8 |
+z8 | z8 | z8 | z8 |
+% --- V9: INVERT + PITCH SHIFT +12 + RETROGRADE (all three) ---
+%%TRANSFORM source 1
+%%TRANSFORM target 9
+%%TRANSFORM retrograde
+%%TRANSFORM invert
+%%TRANSFORM invertaxis 62
+%%TRANSFORM pitchshift 12
+[V:9 name="RI+12"]
+%%MIDI channel 9
+%%MIDI program 81
+%%ENSEMBLE voice -6
+z8 | z8 | z8 | z8 |
+z8 | z8 | z8 | z8 |
+% --- V10: DRUMS - untransformed anchor ---
+[V:10 name="Drums" clef=perc]
+%%MIDI channel 10
+%%MIDI drummap C 36
+%%MIDI drummap D 38
+%%MIDI drummap E 42
+%%ENSEMBLE voice 0
+C2E2 D2E2 | C2E2 D2E2 | C2E2 D2E2 | C2E2 D2E2 |
+C2E2 D2E2 | C2E2 D2E2 | C2E2 D2E2 | C4 z4 |

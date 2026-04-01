@@ -1,0 +1,192 @@
+X:1
+T:Articulate Stress Test - Every Edge Case
+C:Moltzart
+M:4/4
+L:1/8
+Q:1/4=108
+K:Dmin
+%%ENSEMBLE jitter 3
+% =====================================================
+% STRESS TEST: %%ARTICULATE directive
+% Tests: auto mode, individual parameter overrides,
+% per-voice settings, interaction with ENSEMBLE/PNEUMA,
+% edge cases (unison repeated, octave leaps, grace notes,
+% chords, meter changes, tempo changes)
+% =====================================================
+% --- V1: Piano - Full auto articulate ---
+[V:1 name="Piano (auto)"]
+%%MIDI channel 1
+%%MIDI program 0
+%%MIDI beat 95 80 70 2
+%%ENSEMBLE voice 0
+%%ARTICULATE auto
+% Test 1: Repeated notes should shorten
+!mf! D2D2 D2D2 | D2D2 D2D2 |
+% Test 2: Large leaps (>4th) should lengthen
+D2A2 d2A2 | D2d2 A2D2 |
+% Test 3: Phrase endings before rests should sustain
+D2F2 A2d2 | d4 z4 |
+% Test 4: Staccato passages
+.D2.F2.A2.d2 | .d2.A2.F2.D2 |
+% Test 5: Mix of repeated + leaps in same bar
+D2D2 d2d2 | A2A2 D2D2 |
+% Test 6: Stepwise motion (no shortening, no lengthening)
+D2E2 F2G2 | A2B2 c2d2 |
+% Test 7: Phrase end at barline (final note of bar before rest)
+d2c2 A2F2 | D4 z4 |
+% Test 8: Rapid repeated notes (16ths)
+DDDD FFFF | AAAA dddd |
+% Test 9: Leaps in both directions
+D2d2 D2d2 | d2D2 d2D2 |
+% Test 10: Repeated note then immediate leap
+D2D2 d4 | d2d2 D4 |
+% Test 11: Chord context - repeated chord, then leap
+[DA]2[DA]2 [da]2[da]2 | [DA]2[da]2 [DA]2[da]2 |
+% Test 12: Phrase ending into double bar
+D2F2 A2d2 | f2d2 A2F2 | D4 z4 | D8 |
+% --- V2: Clarinet - Custom articulate params (extreme) ---
+[V:2 name="Clarinet (extreme)"]
+%%MIDI channel 2
+%%MIDI program 71
+%%MIDI beat 90 80 70 2
+%%ENSEMBLE voice 5
+%%PNEUMA heartbeat 0.03
+%%ARTICULATE repeated 0.6
+%%ARTICULATE leap 1.3
+%%ARTICULATE phrase-end 1.3
+% Test 13: Extreme shortening on repeated (0.6 = 60%)
+!mf! D2D2 D2D2 | D2D2 D2D2 |
+% Test 14: Extreme lengthening on leaps (1.3 = 130%)
+D2A2 d2A2 | D2d2 A2D2 |
+% Test 15: Extreme phrase-end sustain (1.3 = 130%)
+D2F2 A2d2 | d4 z4 |
+% Test 16: All three interacting
+D2D2 d4 | d2d2 D4 | D2F2 A2d2 | d4 z4 |
+% Test 17: Does PNEUMA humanize interact with ARTICULATE?
+%%PNEUMA humanize 15
+D2D2 D2D2 | D2A2 d2A2 | D2F2 A2d2 | d4 z4 |
+% Test 18: Long passage alternating repeated/leap
+D2D2 d2d2 | D2D2 d2d2 | A2A2 D2D2 | d2d2 A2A2 |
+% --- V3: Strings - Articulate auto + legato overlap test ---
+[V:3 name="Strings (auto)"]
+%%MIDI channel 3
+%%MIDI program 48
+%%MIDI beat 85 75 65 2
+%%ENSEMBLE voice -4
+%%PNEUMA heartbeat 0.04
+%%ARTICULATE auto
+% Test 19: Long sustained melody - phrase ends should extend
+!p! D4 F4 | A4 d4 | f4 d4 | A4 z4 |
+% Test 20: Tremolo-style repeated notes
+!mf! D2D2D2D2 | F2F2F2F2 | A2A2A2A2 | d2d2d2d2 |
+% Test 21: Octave leaps (exactly an octave - is this >4th?)
+D2d2 D2d2 | A2a2 A2a2 |
+% Test 22: Grace notes before repeated notes
+{E}D2D2 {G}F2F2 | {B}A2A2 {e}d2d2 |
+% Test 23: Tied notes across barline then repeated
+D4-| D4 D2D2 |
+% Test 24: Tempo change mid-articulate
+Q:1/4=72
+D4 F4 | A4 d4 | d4 z4 |
+Q:1/4=144
+D2D2 d2d2 | A2A2 D2D2 | d4 z4 |
+% --- V4: Bass - Articulate OFF (control voice) ---
+[V:4 name="Bass (no artic)"]
+%%MIDI channel 4
+%%MIDI program 39
+%%MIDI beat 110 90 75 1
+%%ENSEMBLE voice -6
+%%ARTICULATE off
+% Test 25: Same material as V1 but NO articulate - for comparison
+!mf! D,2D,2 D,2D,2 | D,2D,2 D,2D,2 |
+D,2A,,2 D,2A,,2 | D,2D,2 A,,2D,2 |
+D,2F,2 A,2D,2 | D,4 z4 |
+.D,2.F,2.A,2.D,2 | .D,2.A,2.F,2.D,2 |
+D,2D,2 D,2D,2 | A,,2A,,2 D,2D,2 |
+D,2E,2 F,2G,2 | A,2B,2 C2D2 |
+D,2C2 A,2F,2 | D,4 z4 |
+D,D,D,D, F,F,F,F, | A,A,A,A, D,D,D,D, |
+D,2D,2 D,2D,2 | D,2D,2 D,2D,2 |
+D,2D,2 D,4 | D,2D,2 D,4 |
+[D,A,]2[D,A,]2 [D,A,]2[D,A,]2 | [D,A,]2[D,A,]2 [D,A,]2[D,A,]2 |
+D,2F,2 A,2D,2 | F,2D,2 A,,2F,,2 | D,4 z4 | D,8 |
+% --- V5: Vibes - Articulate with meter change ---
+[V:5 name="Vibes (meter test)"]
+%%MIDI channel 5
+%%MIDI program 11
+%%MIDI beat 90 80 70 2
+%%ENSEMBLE voice 3
+%%ARTICULATE auto
+%%PNEUMA heartbeat 0.02
+% Test 26: 4/4 with articulate
+!mf! D2D2 d2d2 | A2F2 D4 |
+% Test 27: Meter change to 7/8
+M:7/8
+D2D2 d2D | A2A2 D2A | D2F2 A2d | d4 z2D |
+% Test 28: Meter change to 5/4
+M:5/4
+D2D2 d2d2 A2 | D2F2 A2d2 z2 | d4 z4 A2 |
+% Test 29: Back to 4/4
+M:4/4
+D2D2 D2D2 | d2d2 d2d2 | D2d2 D2d2 | D4 z4 |
+% --- V6: Drums - Articulate should have no/minimal effect ---
+[V:6 name="Drums" clef=perc]
+%%MIDI channel 10
+%%MIDI drummap C 36
+%%MIDI drummap D 38
+%%MIDI drummap E 42
+%%MIDI drummap F 46
+%%ENSEMBLE voice 0
+%%ARTICULATE auto
+% Test 30: Drums with articulate auto - what happens?
+!mf! C2E2 D2E2 | C2E2 D2E2 | C2E2 D2E2 | C2E2 D2E2 |
+% Test 31: Repeated drum hits
+CCCC DDDD | EEEE CCCC | CCCC DDDD | EEEE CCCC |
+% Test 32: Sparse hits (phrase endings)
+C4 z4 | z4 D4 | C4 z4 | C2D2 z4 |
+C2E2 D2E2 | C2E2 D2E2 | C2E2 D2E2 | C4 z4 |
+C2E2 D2E2 | C2E2 D2E2 | C2E2 D2E2 | C8 |
+% --- V7: Saw Lead - Articulate staccato override test ---
+[V:7 name="Saw Lead (staccato)"]
+%%MIDI channel 6
+%%MIDI program 81
+%%MIDI beat 100 90 80 1
+%%ENSEMBLE voice -2
+%%ARTICULATE staccato 0.3
+%%ARTICULATE repeated 0.7
+%%ARTICULATE leap 1.2
+% Test 33: Extreme staccato (0.3 = 30% duration)
+!f! .D2.D2.D2.D2 | .d2.d2.d2.d2 |
+% Test 34: Non-staccato with repeated shortening
+D2D2 D2D2 | d2d2 d2d2 |
+% Test 35: Staccato + leap interaction
+.D2.d2.D2.d2 | .d2.D2.d2.D2 |
+% Test 36: Normal notes for comparison
+D2F2 A2d2 | d2A2 F2D2 |
+% Test 37: Staccato phrase ending
+.D2.F2.A2.d2 | .d4 z4 |
+% Pad remaining bars
+z8 | z8 | z8 | z8 |
+z8 | z8 | z8 | z8 |
+z8 | z8 | z8 | z8 |
+z8 | z8 | z8 | z8 |
+% --- V8: Choir - Articulate auto with very slow tempo ---
+[V:8 name="Choir (slow)"]
+%%MIDI channel 7
+%%MIDI program 52
+%%MIDI beat 80 70 60 1
+%%ENSEMBLE voice 10
+%%PNEUMA heartbeat 0.05
+%%ARTICULATE auto
+Q:1/4=54
+% Test 38: Slow sustained - phrase ends should be very noticeable
+!p! D4 F4 | A4 d4 | d4 z4 | z8 |
+% Test 39: Slow repeated - shortening at slow tempo
+D2D2 D2D2 | F2F2 F2F2 | A2A2 A2A2 | d4 z4 |
+% Test 40: Slow leaps
+D2d2 D2d2 | A2D2 d2A2 | D4 z4 | z8 |
+Q:1/4=108
+% Test 41: Tempo change within articulate voice
+D2D2 d2d2 | D2F2 A2d2 | d4 z4 | z8 |
+z8 | z8 | z8 | z8 |
+z8 | z8 | z8 | D8 |

@@ -1,0 +1,13 @@
+X:1
+T:Breath Test - Phrase Separation
+M:4/4
+L:1/8
+Q:1/4=120
+K:C
+%%BREATH auto 30
+%%BREATH bars 4
+%%MIDI program 0
+CDEF GABc | cBAG FEDC | EFGA Bcde | edcB AGFE |
+CDEF GABc | cBAG FEDC | EFGA Bcde | edcB AGFE |
+CDEF GABc | cBAG FEDC | EFGA Bcde | edcB AGFE |
+CDEF GABc | cBAG FEDC | EFGA Bcde | edcB AGFE |

@@ -1,0 +1,45 @@
+X:1
+T:Ensemble Test - Five Musicians
+M:4/4
+L:1/8
+Q:1/4=120
+K:Dmin
+%%ENSEMBLE jitter 4
+% V1: Lead melody — lays back expressively
+[V:1 name="Lead"]
+%%MIDI program 0
+%%ENSEMBLE voice 8
+%%PNEUMA heartbeat 0.03
+DEFG ABcd | dcBA GFED | D2EF GABc | dcBA GFE2 |
+DEFG ABcd | dcBA GFED | D2EF GABc | d8 |
+% V2: Violin — slightly ahead, eager
+[V:2 name="Violin"]
+%%MIDI program 40
+%%ENSEMBLE voice -4
+%%PNEUMA heartbeat 0.03
+z4 ABcd | dcBA z4 | z4 GABc | dcBA GFE2 |
+z4 ABcd | dcBA z4 | z4 GABc | d8 |
+% V3: Bass — pushes the beat
+[V:3 name="Bass"]
+%%MIDI program 39
+%%ENSEMBLE voice -6
+D,4 A,4 | D,4 F,4 | D,4 A,4 | D,4 _B,4 |
+D,4 A,4 | D,4 F,4 | D,4 E,4 | D,8 |
+% V4: Pad — behind the beat, spacious
+[V:4 name="Pad"]
+%%MIDI program 89
+%%ENSEMBLE voice 10
+%%PNEUMA heartbeat 0.04
+[DFA]8 | [DFA]8 | [DFA]8 | [D_BF]8 |
+[DFA]8 | [DFA]8 | [DEA]8 | [DFA]8 |
+% V5: Drums — on the grid, anchoring everything
+[V:5 name="Drums" clef=perc]
+%%MIDI channel 10
+%%MIDI drummap C 36
+%%MIDI drummap D 38
+%%MIDI drummap E 42
+%%ENSEMBLE voice 0
+C2E2 D2E2 C2E2 D2E2 | C2E2 D2E2 C2E2 D2E2 |
+C2E2 D2E2 C2E2 D2E2 | C2E2 D2E2 C2E2 D2E2 |
+C2E2 D2E2 C2E2 D2E2 | C2E2 D2E2 C2E2 D2E2 |
+C2E2 D2E2 C2E2 D2E2 | C4 z2 C2 C4 z4 |

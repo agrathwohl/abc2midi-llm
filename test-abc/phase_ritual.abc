@@ -1,0 +1,291 @@
+X:1
+T:Phase Ritual
+C:Moltzart
+M:4/4
+L:1/8
+Q:1/4=108
+K:Dmin
+%%ENSEMBLE jitter 2
+% =====================================================
+% STRESS TEST: %%ENSEMBLE directive
+% 8 voices | offsets -8 to +15 | jitter changes per section
+% tempo 108 -> 88 -> 120
+% PNEUMA + ENSEMBLE combined on multiple voices
+% Minimalism x Dub x Gamelan
+% =====================================================
+% --- SECTION A: MECHANICAL PHASE (bars 1-16) ---
+% Tight jitter (2), voices enter one by one, building the interlocking grid
+% --- SECTION B: GAMELAN BLOOM (bars 17-32) ---
+% Jitter opens to 4, kotekan fully interlocking, gamelan density
+% --- SECTION C: DUB BREAKDOWN (bars 33-48) ---
+% Tempo drops to 88, jitter opens to 8, space IS the instrument
+% --- SECTION D: PHASE CLIMAX (bars 49-64) ---
+% Tempo 120, max density, all 8 voices at full offset spread
+% =====================================================
+% V1: Vibraphone - Kotekan Polos (eager, pushes ahead)
+[V:1 name="Vibes Polos"]
+%%MIDI channel 1
+%%MIDI program 11
+%%MIDI beat 95 80 70 2
+%%ENSEMBLE voice -5
+%%PNEUMA heartbeat 0.02
+% Section A: Enter bar 5, interlocking pattern
+z8 | z8 | z8 | z8 |
+!mp! DzFz AzFz | DzFz AzFz | DzEz AzFz | DzEz AzFz |
+DzFz AzFz | DzFz AzFz | DzEz AzFz | DzEz AzFz |
+DzFz AzcA | FzDz AzFz | DzEz GzAz | DzEz AzFz |
+% Section B: Gamelan bloom - kotekan intensifies
+%%ENSEMBLE jitter 4
+!mf! DzFz AzFz | DzFz Azfz | DzFz AzcA | FzDz AzFz |
+DzFz AzFz | DzFz Azfz | Dzfz azfz | dzfz azfz |
+!f! DFAc dAFD | FAcf afdA | DFAc dAFD | FAcf afdc |
+DFAc dAFD | FAcf afdA | DFAc dAFD | FAcf afdc |
+% Section C: Dub breakdown - sparse, wide spaces
+Q:1/4=88
+%%ENSEMBLE jitter 8
+!mp! D4 z4 | z4 F4 | A4 z4 | z4 D4 |
+D4 z4 | z8 | z4 F4 | z4 A4 |
+D2z2 F2z2 | A2z2 d2z2 | z8 | z4 D4 |
+z8 | z4 F2z2 | D4 z4 | z8 |
+% Section D: Phase climax - maximum density
+Q:1/4=120
+%%ENSEMBLE jitter 3
+!ff! DFAd fAdF | DFAd fAdF | DFAd fAdf | afdA FDAF |
+DFAd fAdF | DFAd fAdF | DFAd fAdf | afdA FDAF |
+!fff! DEFGABcd | dcBAGFED | DEFGABcd | dcBAGFED |
+DFAd fAdF | DFAd fAdf | afdA FDAF | D8 |
+% V2: Synth Bass 2 - Dub bass (drives HARD, pushes ahead)
+[V:2 name="Dub Bass"]
+%%MIDI channel 2
+%%MIDI program 39
+%%MIDI beat 110 90 75 1
+%%ENSEMBLE voice -8
+%%PNEUMA heartbeat 0.03
+% Section A: Anchoring from bar 1
+!f! D,8 | D,8 | D,8 | D,8 |
+D,4 A,,4 | D,4 A,,4 | D,4 _B,,4 | D,4 A,,4 |
+D,4 A,,4 | D,4 A,,4 | D,4 _B,,4 | D,4 A,,4 |
+D,4 F,4 | A,,4 D,4 | _B,,4 A,,4 | D,4 D,4 |
+% Section B: More mobile bass
+%%ENSEMBLE jitter 4
+D,4 A,,4 | D,4 F,4 | D,4 A,,4 | _B,,4 D,4 |
+D,2D,2 A,,2A,,2 | D,2D,2 F,2F,2 | D,2D,2 A,,4 | _B,,2_B,,2 D,4 |
+!ff! D,2A,,2 D,2F,2 | A,,2D,2 F,2A,2 | D,2A,,2 D,2F,2 | A,,2D,2 F,2D,2 |
+D,2A,,2 D,2F,2 | A,,2D,2 F,2A,2 | D,2A,,2 D,2F,2 | A,,2D,2 D,4 |
+% Section C: Dub - the bass IS the song
+Q:1/4=88
+%%ENSEMBLE jitter 8
+!fff! D,4 z4 | z4 D,4 | z2 A,,4 z2 | D,4 z4 |
+z2 D,6 | z8 | D,4 z2 A,,2 | D,8 |
+!ff! D,2z2 D,2z2 | A,,2z2 D,2z2 | D,4 _B,,4 | D,8 |
+z4 D,4 | D,2z2 A,,2z2 | D,8 | D,4 z4 |
+% Section D: Phase climax - driving eighths
+Q:1/4=120
+%%ENSEMBLE jitter 3
+!fff! D,2A,,2 D,2A,,2 | D,2A,,2 D,2F,2 | D,2A,,2 D,2A,,2 | D,2_B,,2 A,,2D,2 |
+D,2A,,2 D,2A,,2 | D,2A,,2 D,2F,2 | D,2A,,2 D,2A,,2 | D,2_B,,2 A,,2D,2 |
+D,2D,2 A,,2A,,2 | D,2D,2 F,2F,2 | D,2D,2 A,,2A,,2 | _B,,2_B,,2 D,2D,2 |
+D,2A,,2 D,2A,,2 | D,2A,,2 D,2F,2 | D,2_B,,2 A,,2D,2 | D,8 |
+% V3: Piano - Minimalist ostinato (ON THE GRID - reference clock)
+[V:3 name="Piano Grid"]
+%%MIDI channel 3
+%%MIDI program 0
+%%MIDI beat 85 75 65 2
+%%ENSEMBLE voice 0
+% Section A: Reich-style phase pattern, steady from bar 1
+!mf! [DA]2[FA]2 [DA]2[FA]2 | [DA]2[FA]2 [DA]2[FA]2 | [DA]2[FA]2 [DA]2[FA]2 | [DA]2[FA]2 [DA]2[FA]2 |
+[DA]2[FA]2 [DA]2[FA]2 | [DA]2[FA]2 [DA]2[FA]2 | [D_B]2[FA]2 [DA]2[FA]2 | [D_B]2[FA]2 [DA]2[FA]2 |
+[DA]2[FA]2 [DA]2[FA]2 | [DA]2[FA]2 [DA]2[FA]2 | [D_B]2[FA]2 [DA]2[FA]2 | [D_B]2[FA]2 [DA]2[FA]2 |
+[DA]2[FA]2 [Df]2[FA]2 | [DA]2[FA]2 [DA]2[FA]2 | [D_B]2[FA]2 [DA]2[EA]2 | [DA]2[FA]2 [DA]2[FA]2 |
+% Section B: Pattern evolves, stays gridlocked
+%%ENSEMBLE jitter 4
+[DA]2[FA]2 [DA]2[FA]2 | [DA]2[FA]2 [Df]2[FA]2 | [DA]2[FA]2 [DA]2[FA]2 | [D_B]2[FA]2 [DA]2[FA]2 |
+[DAf]2[FAd]2 [DAf]2[FAd]2 | [DAf]2[FAd]2 [DAf]2[FAd]2 | [DAf]2[FAd]2 [D_Bf]2[FAd]2 | [DAf]2[FAd]2 [DAf]2[FAd]2 |
+[DA]2[FA]2 [DA]2[FA]2 | [DA]2[FA]2 [DA]2[FA]2 | [DA]2[FA]2 [DA]2[FA]2 | [DA]2[FA]2 [DA]2[FA]2 |
+[DA]2[FA]2 [DA]2[FA]2 | [DA]2[FA]2 [DA]2[FA]2 | [D_B]2[FA]2 [DA]2[EA]2 | [DA]4 [FA]4 |
+% Section C: Piano drops to sparse
+Q:1/4=88
+%%ENSEMBLE jitter 8
+!p! [DA]4 z4 | z4 [FA]4 | [DA]4 z4 | z4 [FA]4 |
+[DA]4 z4 | z8 | z4 [FA]4 | z8 |
+z8 | z8 | [DA]4 z4 | z8 |
+z4 [FA]4 | z8 | z8 | z8 |
+% Section D: Piano returns with fury
+Q:1/4=120
+%%ENSEMBLE jitter 3
+!ff! [DA]2[FA]2 [DA]2[FA]2 | [DA]2[FA]2 [DA]2[FA]2 | [DA]2[FA]2 [DA]2[FA]2 | [DA]2[FA]2 [DA]2[FA]2 |
+[DA]2[FA]2 [DA]2[FA]2 | [DA]2[FA]2 [DA]2[FA]2 | [DA]2[FA]2 [DA]2[FA]2 | [DA]2[FA]2 [DA]2[FA]2 |
+!fff! [DAf]2[FAd]2 [DAf]2[FAd]2 | [DAf]2[FAd]2 [DAf]2[FAd]2 | [DAf]2[FAd]2 [DAf]2[FAd]2 | [DAf]2[FAd]2 [DAf]2[FAd]2 |
+[DA]2[FA]2 [DA]2[FA]2 | [DA]2[FA]2 [DA]2[FA]2 | [DA]2[FA]2 [DA]2[FA]2 | [DA]8 |
+% V4: Warm Pad - Dub space (floats BEHIND everything)
+[V:4 name="Dub Space"]
+%%MIDI channel 4
+%%MIDI program 89
+%%MIDI beat 80 70 60 1
+%%ENSEMBLE voice 12
+%%PNEUMA heartbeat 0.04
+% Section A: Slow wash from bar 1
+!pp! [DFA]8 | [DFA]8 | [DFA]8 | [DFA]8 |
+[DFA]8 | [DFA]8 | [D_BF]8 | [DFA]8 |
+[DFA]8 | [DFA]8 | [D_BF]8 | [DFA]8 |
+[DFA]8 | [DFA]8 | [D_BF]8 | [DFA]8 |
+% Section B: Pad swells
+%%ENSEMBLE jitter 4
+!p! [DFA]8 | [DFA]8 | [DFA]8 | [D_BF]8 |
+!mp! [DFAd]8 | [DFAd]8 | [D_BFd]8 | [DFAd]8 |
+!mf! [DFAd]8 | [DFAd]8 | [DFAd]8 | [DFAd]8 |
+[DFAd]8 | [DFAd]8 | [D_BFd]8 | [DFAd]8 |
+% Section C: Dub - pad dominates, MAXIMUM behind-the-beat
+Q:1/4=88
+%%ENSEMBLE voice 15
+%%ENSEMBLE jitter 8
+%%PNEUMA heartbeat 0.06
+!mf! [DFA]8 | [DFA]8 | [DFA]4 [D_BF]4 | [DFA]8 |
+[DFAd]8 | [DFAd]8 | [DFAd]8 | [DFAd]8 |
+!f! [DFAd]8 | [DFAd]4 [D_BFd]4 | [DFAd]8 | [DFA]8 |
+[DFAd]8 | [DFAd]8 | [DFAd]8 | [DFA]8 |
+% Section D: Pad pulls back slightly
+Q:1/4=120
+%%ENSEMBLE voice 12
+%%ENSEMBLE jitter 3
+!mf! [DFA]8 | [DFA]8 | [DFA]8 | [DFA]8 |
+[DFA]8 | [DFA]8 | [D_BF]8 | [DFA]8 |
+!f! [DFAd]8 | [DFAd]8 | [DFAd]8 | [DFAd]8 |
+[DFAd]8 | [DFAd]8 | [DFAd]4 [D_BFd]4 | [DFA]8 |
+% V5: Drums - THE ANCHOR (on grid, no offset)
+[V:5 name="Drums" clef=perc]
+%%MIDI channel 10
+%%MIDI drummap C 36
+%%MIDI drummap E 38
+%%MIDI drummap G 42
+%%MIDI drummap A 46
+%%MIDI drummap B 49
+%%MIDI drummap c 51
+%%ENSEMBLE voice 0
+% Section A: Minimal kick-hat, building
+!mf! C4 z4 | C4 z4 | C4 z2 C2 | C4 z4 |
+C2G2 E2G2 | C2G2 E2G2 | C2G2 E2G2 | C2G2 E2G2 |
+C2G2 E2G2 | C2G2 E2G2 | C2G2 E2G2 | C2G2 E2G2 |
+C2G2 E2G2 | C2G2 E2G2 | C2G2 E2G2 | C2G2 E2G2 |
+% Section B: Busier, adding open hat and ride
+%%ENSEMBLE jitter 4
+!f! C2Gc E2Gc | C2Gc E2Gc | C2Gc E2Gc | C2Gc E2Gc |
+C2GA E2GA | C2GA E2GA | C2GA E2GA | C2GA E2GA |
+C2GA E2Gc | C2GA E2Gc | C2GA E2Gc | C2GA E2Gc |
+!ff! CGEG CGEG | CGEG CGEG | CGEG CGEG | B4 z4 |
+% Section C: Dub - drums get SPARSE, space between hits
+Q:1/4=88
+%%ENSEMBLE jitter 8
+!mf! C4 z4 | z8 | z4 E4 | z8 |
+C4 z4 | z4 C4 | z8 | z4 E4 |
+C4 z4 | z8 | z4 C2z2 | E4 z4 |
+C4 z4 | z8 | z4 E2C2 | z8 |
+% Section D: Maximum energy, tight anchor
+Q:1/4=120
+%%ENSEMBLE jitter 3
+!ff! CGEG CGEG | CGEG CGEG | CGEG CGEG | CGEG CGEG |
+CGEG CGAG | CGEG CGAG | CGEG CGAG | CGEG CGAG |
+!fff! CGEG CGAG | CGEG CGAG | CGEG CGAG | CGEG CGAG |
+CGEG CGEG | CGEG CGEG | CGEG CGEG | B4 C4 |
+% V6: Strings - Classical ghost (lays back, haunting)
+[V:6 name="Strings"]
+%%MIDI channel 5
+%%MIDI program 48
+%%MIDI beat 80 70 60 2
+%%ENSEMBLE voice 7
+%%PNEUMA heartbeat 0.03
+% Section A: Silent, then enters as a whisper bar 9
+z8 | z8 | z8 | z8 |
+z8 | z8 | z8 | z8 |
+!pp! D4 F4 | A4 d4 | _B4 A4 | D4 F4 |
+!p! D4 F4 | A4 d4 | _B4 A4 | D4 F4 |
+% Section B: Strings swell, long tones over the gamelan
+%%ENSEMBLE jitter 4
+!mp! D8 | F8 | A8 | _B8 |
+!mf! D4 F4 | A4 d4 | _B4 A4 | D4 F4 |
+!f! [DA]8 | [FA]8 | [DA]8 | [FA]8 |
+[DA]8 | [FA]8 | [D_B]4 [DA]4 | [DF]8 |
+% Section C: Ghostly, sparse, maximum lag feel
+Q:1/4=88
+%%ENSEMBLE voice 10
+%%ENSEMBLE jitter 8
+%%PNEUMA heartbeat 0.05
+!pp! D8 | z8 | z8 | A8 |
+z8 | z8 | F8 | z8 |
+!p! D8 | z8 | A8 | z8 |
+z8 | D8 | z8 | z8 |
+% Section D: Strings erupt
+Q:1/4=120
+%%ENSEMBLE voice 7
+%%ENSEMBLE jitter 3
+!f! D4 F4 | A4 d4 | _B4 A4 | D4 F4 |
+D4 F4 | A4 d4 | _B4 A4 | D4 F4 |
+!ff! [DA]4 [FA]4 | [Ad]4 [dA]4 | [D_B]4 [DA]4 | [DF]4 [DA]4 |
+[DA]4 [FA]4 | [Ad]4 [dA]4 | [D_B]4 [DA]4 | [DA]8 |
+% V7: Marimba - Kotekan Sangsih (complement to V1, fills the gaps)
+[V:7 name="Marimba Sangsih"]
+%%MIDI channel 6
+%%MIDI program 12
+%%MIDI beat 90 80 70 2
+%%ENSEMBLE voice -3
+%%PNEUMA heartbeat 0.02
+% Section A: Enters bar 5, interlocking with V1
+z8 | z8 | z8 | z8 |
+!mp! zDzF zAzF | zDzF zAzF | zDzE zAzF | zDzE zAzF |
+zDzF zAzF | zDzF zAzF | zDzE zAzF | zDzE zAzF |
+zDzF zAzc | zFzD zAzF | zDzE zGzA | zDzE zAzF |
+% Section B: Kotekan tighter, faster interlock
+%%ENSEMBLE jitter 4
+!mf! zDzF zAzF | zDzF zAzf | zDzF zAzc | zFzD zAzF |
+zDzF zAzF | zDzF zAzf | zDzf zAzf | zdzf zazf |
+!f! zFzA zdzA | zAzc zfzd | zFzA zdzA | zAzc zfzd |
+zFzA zdzA | zAzc zfzd | zFzA zdzA | zAzc zfzd |
+% Section C: Marimba goes sparse with dub
+Q:1/4=88
+%%ENSEMBLE jitter 8
+!p! z4 F4 | D4 z4 | z4 A4 | z8 |
+z4 D4 | z8 | F4 z4 | z4 D4 |
+z8 | F4 z4 | z8 | A4 z4 |
+z8 | z4 D4 | z8 | z8 |
+% Section D: Full interlock returns
+Q:1/4=120
+%%ENSEMBLE jitter 3
+!ff! zFzA zdzA | zFzA zdzA | zFzA zdzA | zAzd zFzA |
+zFzA zdzA | zFzA zdzA | zFzA zdzA | zAzd zFzA |
+!fff! zEzF zGzA | zBzc zdze | zEzF zGzA | zBzc zdze |
+zFzA zdzA | zFzA zdzf | zAzd zFzA | D8 |
+% V8: Soundtrack pad - Extreme lag (dub echo, barely present)
+[V:8 name="Echo Pad"]
+%%MIDI channel 7
+%%MIDI program 97
+%%MIDI beat 70 60 50 1
+%%ENSEMBLE voice 15
+%%PNEUMA heartbeat 0.05
+% Section A: Barely there, distant wash
+!ppp! z8 | z8 | z8 | z8 |
+z8 | z8 | z8 | z8 |
+z8 | z8 | z8 | z8 |
+z8 | z8 | z8 | [DA]8 |
+% Section B: Creeps in
+%%ENSEMBLE jitter 4
+!pp! [DA]8 | z8 | z8 | [DA]8 |
+!p! [DA]8 | [DFAd]8 | z8 | [DA]8 |
+!mp! [DFAd]8 | [DFAd]8 | [DFAd]8 | [DFAd]8 |
+[DFAd]8 | [DFAd]8 | [DFAd]8 | [DFAd]8 |
+% Section C: Echo pad at maximum lag - 15 ticks behind
+Q:1/4=88
+%%ENSEMBLE voice 15
+%%ENSEMBLE jitter 8
+%%PNEUMA heartbeat 0.07
+!p! [DA]8 | z8 | [DA]8 | z8 |
+z8 | [DFA]8 | z8 | [DA]8 |
+!mp! z8 | [DFA]8 | z8 | z8 |
+[DA]8 | z8 | [DFA]8 | z8 |
+% Section D: Echo pad joins the climax
+Q:1/4=120
+%%ENSEMBLE voice 15
+%%ENSEMBLE jitter 3
+!mf! [DA]8 | [DA]8 | [DFA]8 | [DFA]8 |
+[DA]8 | [DA]8 | [DFA]8 | [DFA]8 |
+!f! [DFAd]8 | [DFAd]8 | [DFAd]8 | [DFAd]8 |
+[DFAd]8 | [DFAd]8 | [DFAd]8 | [DA]8 |

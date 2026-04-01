@@ -1,0 +1,13 @@
+X:1
+T:Gravity Test - Phrase Shaping
+M:4/4
+L:1/8
+Q:1/4=120
+K:Dmin
+%%GRAVITY phrase 4
+%%GRAVITY weight 1.15 1.0 0.9 0.85
+%%GRAVITY agogic 1.05 1.0 1.0 0.95
+%%MIDI program 0
+DEFG ABcd | dcBA GFED | D2EF GABc | dcBA GFE2 |
+DEFG ABcd | dcBA GFED | D2EF GABc | dcBA GFE2 |
+DEFG ABcd | dcBA GFED | D2EF GABc | d8 |

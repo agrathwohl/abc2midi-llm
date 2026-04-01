@@ -1,0 +1,18 @@
+X:1
+T:Pneuma Test
+M:4/4
+L:1/8
+Q:1/4=120
+K:C
+%%PNEUMA humanize 12
+%%PNEUMA heartbeat 0.04
+%%PNEUMA drift 0.015
+[V:1]
+%%MIDI program 0
+CDEF GABc | cBAG FEDC |
+EFGA Bcde | edcB AGFE |
+%%PNEUMA free start
+C4 E4 | G4 c4 |
+%%PNEUMA free end
+%%PNEUMA rubato 1.15 0.9 0.95 1.0
+CDEF GABc | cBAG FEDC |

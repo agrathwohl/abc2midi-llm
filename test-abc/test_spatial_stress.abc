@@ -1,0 +1,80 @@
+X:1
+T:Spatial Stress Test - Extreme Distances and Edge Cases
+C:Moltzart
+M:4/4
+L:1/8
+Q:1/4=96
+K:Dmin
+%%ENSEMBLE jitter 2
+% =====================================================
+% STRESS TEST: %%SPATIAL directive
+% Tests: extreme delays, many groups, tempo changes,
+% interaction with ENSEMBLE offsets, single-voice groups,
+% same voice in no group, zero delay between groups
+% =====================================================
+% Test 1: Five groups at increasing distances
+%%SPATIAL group A voices 1
+%%SPATIAL group B voices 2
+%%SPATIAL group C voices 3
+%%SPATIAL group D voices 4
+%%SPATIAL group E voices 5,6
+%%SPATIAL delay A B 100
+%%SPATIAL delay A C 250
+%%SPATIAL delay A D 500
+%%SPATIAL delay A E 750
+% --- V1: Group A (reference) - Lead melody ---
+[V:1 name="Close Lead"]
+%%MIDI channel 1
+%%MIDI program 71
+%%ENSEMBLE voice 0
+%%PNEUMA heartbeat 0.03
+!mf! D2F2 A2d2 | f2d2 A2F2 | D2E2 F2G2 | A4 z4 |
+D2F2 A2d2 | f2d2 A2F2 | D2E2 F2G2 | d8 |
+% --- V2: Group B (100ms) - Harmony ---
+[V:2 name="Near Harmony"]
+%%MIDI channel 2
+%%MIDI program 0
+%%ENSEMBLE voice 3
+%%PNEUMA heartbeat 0.03
+!mf! F2A2 d2f2 | a2f2 d2A2 | F2G2 A2_B2 | c4 z4 |
+F2A2 d2f2 | a2f2 d2A2 | F2G2 A2_B2 | f8 |
+% --- V3: Group C (250ms) - Pad ---
+[V:3 name="Mid Pad"]
+%%MIDI channel 3
+%%MIDI program 89
+%%ENSEMBLE voice 8
+%%PNEUMA heartbeat 0.05
+!p! [DFA]8 | [DFA]8 | [DFA]8 | [DFA]8 |
+[DFA]8 | [DFA]8 | [DEA]8 | [DFA]8 |
+% --- V4: Group D (500ms) - Bass ---
+[V:4 name="Far Bass"]
+%%MIDI channel 4
+%%MIDI program 39
+%%ENSEMBLE voice -4
+!f! D,4 A,,4 | D,4 F,4 | D,4 A,,4 | D,4 A,,4 |
+D,4 A,,4 | D,4 F,4 | D,4 E,4 | D,8 |
+% --- V5: Group E (750ms) - Distant percussion ---
+[V:5 name="Distant Marimba"]
+%%MIDI channel 5
+%%MIDI program 12
+%%ENSEMBLE voice 0
+!mp! D2z2 A2z2 | D2z2 F2z2 | D2z2 A2z2 | D4 z4 |
+D2z2 A2z2 | D2z2 F2z2 | D2z2 E2z2 | D4 z4 |
+% --- V6: Group E (750ms) - also distant, shares group with V5 ---
+[V:6 name="Distant Drums" clef=perc]
+%%MIDI channel 10
+%%MIDI drummap C 36
+%%MIDI drummap D 38
+%%MIDI drummap E 42
+%%MIDI drummap F 46
+%%ENSEMBLE voice 0
+!mf! C4 z4 | z4 D4 | C4 z4 | z4 D4 |
+C4 z4 | z4 D4 | C4 z4 | C4 D4 |
+% --- V7: NO GROUP - should be unaffected by spatial ---
+[V:7 name="Ungrouped"]
+%%MIDI channel 7
+%%MIDI program 52
+%%ENSEMBLE voice 5
+%%PNEUMA heartbeat 0.04
+!pp! [DA]8 | [DA]8 | [DFA]8 | [DFA]8 |
+[DA]8 | [DA]8 | [DFA]8 | [DA]8 |
