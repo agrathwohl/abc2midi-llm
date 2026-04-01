@@ -165,6 +165,32 @@ ARTICULATE adjusts note durations based on musical context. Repeated pitches are
 | `%%ARTICULATE staccato`   | `F` (float 0–1)  | Set staccato note duration as ratio of original (e.g. `0.5` = 50%)    |
 | `%%ARTICULATE off`        |                   | Disable all articulation rules                                         |
 
+### %%SPATIAL — Inter-Group Timing Offset
+
+SPATIAL simulates physical distance between groups of voices by adding millisecond-scale delays converted to MIDI ticks. Groups are defined with single-letter names (A–Z) and assigned voices. Delays between groups are symmetric. Group A (index 0) is the reference group with zero delay; all other groups are offset relative to it. SPATIAL state is global — it persists across tracks and is never reset.
+
+| Directive          | Parameters                        | Effect                                                                  |
+| ------------------ | --------------------------------- | ----------------------------------------------------------------------- |
+| `%%SPATIAL group`  | `X voices N,N,...` (letter + ints) | Define group X containing listed voice numbers (max 8 groups, 16 voices per group) |
+| `%%SPATIAL delay`  | `X Y N` (two letters + int ms)    | Set N milliseconds delay between groups X and Y (symmetric)             |
+
+### %%TRANSFORM — Cross-Voice Algorithmic Transformation
+
+TRANSFORM reads note data from a source voice, applies a chain of algorithmic operations, and replaces the target voice's content with the result. This is a pre-generation pass that modifies the feature arrays before MIDI output. Operations are applied in order: fragment → retrograde → invert → pitch shift → time scale. Pitch values are clamped to 0–127. Requires both source and target to be specified.
+
+| Directive                 | Parameters              | Effect                                                                  |
+| ------------------------- | ----------------------- | ----------------------------------------------------------------------- |
+| `%%TRANSFORM source`      | `N` (voice number)      | Set source voice to copy notes from                                     |
+| `%%TRANSFORM target`      | `N` (voice number)      | Set target voice to replace with transformed notes                      |
+| `%%TRANSFORM retrograde`  |                         | Reverse the note/rest sequence (bar lines stay in place)                |
+| `%%TRANSFORM invert`      |                         | Mirror pitches around the inversion axis                                |
+| `%%TRANSFORM invertaxis`  | `N` (MIDI pitch 0–127)  | Set inversion axis (default 60 = middle C)                              |
+| `%%TRANSFORM fragment`    | `S E` (start/end bars)  | Extract only bars S through E from source (0-indexed)                   |
+| `%%TRANSFORM pitchshift`  | `N` (semitones ±)       | Transpose all pitches by N semitones                                    |
+| `%%TRANSFORM timescale`   | `F` (float)             | Scale all note/rest durations by factor F                               |
+| `%%TRANSFORM delay`       | `N` (bars)              | Prepend N bars of whole-bar rests before transformed content            |
+| `%%TRANSFORM off`         |                         | Disable transform (no operation performed)                              |
+
 ## Upstream
 
 The original abcMIDI package is maintained at [sourceforge](https://sourceforge.net/projects/abc/) and on the [runabc](https://ifdo.ca/~seymour/runabc/top.html) web page.

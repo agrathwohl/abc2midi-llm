@@ -2512,6 +2512,64 @@ static void event_articulate(char *s)
   if (verbose > 1) printf("event_articulate: %s\n", s);
 }
 
+/* [SPATIAL] 2026-04-01 */
+static void event_spatial(char *s)
+{
+  char msg[256];
+  char command[40];
+  char *p;
+
+  p = s;
+  skipspace(&p);
+  readstr(command, &p, 40);
+
+  if (strcmp(command, "group") != 0 &&
+      strcmp(command, "delay") != 0) {
+    char errmsg[80];
+    snprintf(errmsg, sizeof(errmsg),
+             "%%%%SPATIAL command \"%s\" not recognized", command);
+    event_warning(errmsg);
+  }
+
+  snprintf(msg, sizeof(msg), "spatial%s%s", command, p);
+  textfeature(DYNAMIC, msg);
+
+  if (verbose > 1) printf("event_spatial: %s\n", s);
+}
+
+/* [TRANSFORM] 2026-04-01 */
+static void event_transform(char *s)
+{
+  char msg[256];
+  char command[40];
+  char *p;
+
+  p = s;
+  skipspace(&p);
+  readstr(command, &p, 40);
+
+  if (strcmp(command, "source") != 0 &&
+      strcmp(command, "target") != 0 &&
+      strcmp(command, "retrograde") != 0 &&
+      strcmp(command, "invert") != 0 &&
+      strcmp(command, "invertaxis") != 0 &&
+      strcmp(command, "fragment") != 0 &&
+      strcmp(command, "pitchshift") != 0 &&
+      strcmp(command, "timescale") != 0 &&
+      strcmp(command, "delay") != 0 &&
+      strcmp(command, "off") != 0) {
+    char errmsg[80];
+    snprintf(errmsg, sizeof(errmsg),
+             "%%%%TRANSFORM command \"%s\" not recognized", command);
+    event_warning(errmsg);
+  }
+
+  snprintf(msg, sizeof(msg), "transform%s%s", command, p);
+  textfeature(DYNAMIC, msg);
+
+  if (verbose > 1) printf("event_transform: %s\n", s);
+}
+
 /* [GRAVITY] 2026-03-31 */
 static void event_gravity(char *s)
 {
@@ -2578,6 +2636,16 @@ void event_specific(char *package, char *s, int in_I)
 /* [ARTICULATE] 2026-04-01 */
   if (strcmp(package, "ARTICULATE") == 0) {
      event_articulate(s);
+     return;
+     }
+
+  if (strcmp(package, "SPATIAL") == 0) {
+     event_spatial(s);
+     return;
+     }
+
+  if (strcmp(package, "TRANSFORM") == 0) {
+     event_transform(s);
      return;
      }
 
@@ -2762,6 +2830,16 @@ char *package, *s;
   /* [ARTICULATE] 2026-04-01 */
   if (strcmp(package, "ARTICULATE") == 0) {
     if (verbose > 1) printf("event_specific_in_header: ARTICULATE %s (stored)\n", s);
+    return;
+  }
+
+  if (strcmp(package, "SPATIAL") == 0) {
+    if (verbose > 1) printf("event_specific_in_header: SPATIAL %s (stored)\n", s);
+    return;
+  }
+
+  if (strcmp(package, "TRANSFORM") == 0) {
+    if (verbose > 1) printf("event_specific_in_header: TRANSFORM %s (stored)\n", s);
     return;
   }
 
@@ -6405,6 +6483,227 @@ for (i=0;i<notes;i++) {
 }
 
 
+/* [TRANSFORM] 2026-04-01 */
+#define MAX_TRANSFORM_NOTES 4096
+static void apply_transforms()
+/* pre-pass: read source voice, apply transforms, replace target voice */
+{
+  int j, k;
+  int transform_source = -1;
+  int transform_target = -1;
+  int transform_retrograde = 0;
+  int transform_invert = 0;
+  int transform_invert_axis = 60;
+  int transform_pitchshift = 0;
+  double transform_timescale = 1.0;
+  int transform_fragment_start = 0;
+  int transform_fragment_end = -1;
+  int transform_delay = 0;
+  int found_transform = 0;
+  char *s;
+  static featuretype t_feature[MAX_TRANSFORM_NOTES];
+  static int t_pitch[MAX_TRANSFORM_NOTES];
+  static int t_num[MAX_TRANSFORM_NOTES];
+  static int t_denom[MAX_TRANSFORM_NOTES];
+  int t_count = 0;
+  int in_voice, bar_count;
+  int target_start, target_end;
+  int insert_pos;
+
+  /* Phase 1: scan for transform parameters in DYNAMIC entries */
+  for (j = 0; j < notes; j++) {
+    if (feature[j] != DYNAMIC) continue;
+    s = atext[pitch[j]];
+    if (strncmp(s, "transform", 9) != 0) continue;
+    s += 9;
+    if (strncmp(s, "source", 6) == 0) {
+      sscanf(s + 6, "%d", &transform_source);
+      found_transform = 1;
+    } else if (strncmp(s, "target", 6) == 0) {
+      sscanf(s + 6, "%d", &transform_target);
+    } else if (strncmp(s, "retrograde", 10) == 0) {
+      transform_retrograde = 1;
+    } else if (strncmp(s, "invertaxis", 10) == 0) {
+      sscanf(s + 10, "%d", &transform_invert_axis);
+    } else if (strncmp(s, "invert", 6) == 0) {
+      transform_invert = 1;
+    } else if (strncmp(s, "pitchshift", 10) == 0) {
+      sscanf(s + 10, "%d", &transform_pitchshift);
+    } else if (strncmp(s, "timescale", 9) == 0) {
+      sscanf(s + 9, "%lf", &transform_timescale);
+    } else if (strncmp(s, "fragment", 8) == 0) {
+      sscanf(s + 8, "%d %d", &transform_fragment_start, &transform_fragment_end);
+    } else if (strncmp(s, "delay", 5) == 0) {
+      sscanf(s + 5, "%d", &transform_delay);
+    } else if (strncmp(s, "off", 3) == 0) {
+      return;
+    }
+  }
+  if (!found_transform || transform_source < 0 || transform_target < 0) return;
+  if (verbose > 1) printf("apply_transforms: source=%d target=%d\n",
+                           transform_source, transform_target);
+
+  /* Phase 2: collect source voice features (NOTE, REST, bars) */
+  in_voice = 0;
+  bar_count = 0;
+  for (j = 0; j < notes; j++) {
+    if (feature[j] == VOICE) {
+      in_voice = (pitch[j] == transform_source);
+      if (in_voice) bar_count = 0;
+      continue;
+    }
+    if (!in_voice) continue;
+    if (t_count >= MAX_TRANSFORM_NOTES) break;
+    if (feature[j] == SINGLE_BAR || feature[j] == DOUBLE_BAR) {
+      bar_count++;
+      if (transform_fragment_end >= 0 && bar_count > transform_fragment_end + 1)
+        break;
+      if (bar_count > transform_fragment_start) {
+        t_feature[t_count] = feature[j];
+        t_pitch[t_count] = pitch[j];
+        t_num[t_count] = num[j];
+        t_denom[t_count] = denom[j];
+        t_count++;
+      }
+    } else if (feature[j] == NOTE || feature[j] == REST) {
+      if (transform_fragment_end >= 0 && bar_count > transform_fragment_end)
+        continue;
+      if (bar_count >= transform_fragment_start) {
+        t_feature[t_count] = feature[j];
+        t_pitch[t_count] = pitch[j];
+        t_num[t_count] = num[j];
+        t_denom[t_count] = denom[j];
+        t_count++;
+      }
+    }
+  }
+  if (t_count == 0) return;
+
+  /* Phase 3: apply transforms */
+
+  /* 3a: retrograde - reverse NOTE/REST entries, bars stay in place */
+  if (transform_retrograde) {
+    int left = 0, right = t_count - 1;
+    while (left < right) {
+      while (left < right &&
+             t_feature[left] != NOTE && t_feature[left] != REST) left++;
+      while (left < right &&
+             t_feature[right] != NOTE && t_feature[right] != REST) right--;
+      if (left < right) {
+        featuretype tf; int tp, tn, td;
+        tf = t_feature[left]; t_feature[left] = t_feature[right];
+        t_feature[right] = tf;
+        tp = t_pitch[left]; t_pitch[left] = t_pitch[right];
+        t_pitch[right] = tp;
+        tn = t_num[left]; t_num[left] = t_num[right];
+        t_num[right] = tn;
+        td = t_denom[left]; t_denom[left] = t_denom[right];
+        t_denom[right] = td;
+        left++;
+        right--;
+      }
+    }
+  }
+
+  /* 3b: invert around axis */
+  if (transform_invert) {
+    for (j = 0; j < t_count; j++) {
+      if (t_feature[j] == NOTE) {
+        t_pitch[j] = 2 * transform_invert_axis - t_pitch[j];
+        if (t_pitch[j] < 0) t_pitch[j] = 0;
+        if (t_pitch[j] > 127) t_pitch[j] = 127;
+      }
+    }
+  }
+
+  /* 3c: pitch shift */
+  if (transform_pitchshift != 0) {
+    for (j = 0; j < t_count; j++) {
+      if (t_feature[j] == NOTE) {
+        t_pitch[j] += transform_pitchshift;
+        if (t_pitch[j] < 0) t_pitch[j] = 0;
+        if (t_pitch[j] > 127) t_pitch[j] = 127;
+      }
+    }
+  }
+
+  /* 3d: time scale */
+  if (transform_timescale != 1.0) {
+    for (j = 0; j < t_count; j++) {
+      if (t_feature[j] == NOTE || t_feature[j] == REST) {
+        t_num[j] = (int)(t_num[j] * transform_timescale);
+        if (t_num[j] < 1) t_num[j] = 1;
+      }
+    }
+  }
+
+  /* Phase 4: clear target voice content (REPLACE semantics) */
+  target_start = -1;
+  target_end = -1;
+  in_voice = 0;
+  for (j = 0; j < notes; j++) {
+    if (feature[j] == VOICE) {
+      if (pitch[j] == transform_target) {
+        in_voice = 1;
+        target_start = j + 1;
+      } else if (in_voice) {
+        target_end = j;
+        break;
+      }
+    }
+  }
+  if (in_voice && target_end < 0) target_end = notes;
+  if (target_start < 0) return;
+
+  /* remove NOTE, REST, bars from target region (backwards to preserve indices) */
+  for (j = target_end - 1; j >= target_start; j--) {
+    if (feature[j] == NOTE || feature[j] == REST ||
+        feature[j] == SINGLE_BAR || feature[j] == DOUBLE_BAR) {
+      removefeature(j);
+    }
+  }
+
+  /* Phase 5: find insertion point in cleared target voice */
+  insert_pos = -1;
+  in_voice = 0;
+  for (j = 0; j < notes; j++) {
+    if (feature[j] == VOICE) {
+      if (pitch[j] == transform_target) {
+        insert_pos = j + 1;
+        in_voice = 1;
+      } else if (in_voice) {
+        insert_pos = j;
+        break;
+      }
+    }
+  }
+  if (insert_pos < 0) return;
+
+  /* skip header features in target voice (KEY, TIME_SIG, etc.) */
+  while (insert_pos < notes && feature[insert_pos] != VOICE &&
+         feature[insert_pos] != NOTE && feature[insert_pos] != REST &&
+         feature[insert_pos] != SINGLE_BAR &&
+         feature[insert_pos] != DOUBLE_BAR) {
+    insert_pos++;
+  }
+
+  /* insert delay rests (whole-bar rests) */
+  for (k = 0; k < transform_delay; k++) {
+    insertfeature(REST, 0, time_num, time_denom, insert_pos);
+    insert_pos++;
+    insertfeature(SINGLE_BAR, 0, 0, 0, insert_pos);
+    insert_pos++;
+  }
+
+  /* insert transformed content */
+  for (j = 0; j < t_count; j++) {
+    insertfeature(t_feature[j], t_pitch[j], t_num[j], t_denom[j], insert_pos);
+    insert_pos++;
+  }
+  if (verbose > 1) printf("apply_transforms: inserted %d features\n", t_count);
+}
+
+
 static void finishfile()
 /* end of tune has been reached - write out MIDI file */
 {
@@ -6448,6 +6747,8 @@ static void finishfile()
 
     if (parts >= 0) fix_part_start(); /* [SS] 2012-12-25 */
     if (verbose > 5) dumpfeat(0,notes);
+
+    apply_transforms(); /* [TRANSFORM] 2026-04-01 */
 
     if (check) {
       Mf_putc = nullputc;

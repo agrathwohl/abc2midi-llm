@@ -270,6 +270,16 @@ double artic_phrase_end = 0.0;   /* duration scale for phrase-ending notes */
 double artic_staccato = 0.0;     /* duration scale for staccato notes */
 int artic_prev_pitch = -1;       /* previous pitch for interval detection */
 
+/* [SPATIAL] 2026-04-01 */
+#define SPATIAL_MAX_GROUPS 8
+#define SPATIAL_MAX_VOICES 16
+int spatial_group_count = 0;
+char spatial_group_names[SPATIAL_MAX_GROUPS];
+int spatial_group_voices[SPATIAL_MAX_GROUPS][SPATIAL_MAX_VOICES];
+int spatial_group_voice_count[SPATIAL_MAX_GROUPS];
+int spatial_delay_ms[SPATIAL_MAX_GROUPS][SPATIAL_MAX_GROUPS];
+int spatial_active = 0;
+
 /* channel 10 drum handling */
 int drum_map[256];
 
@@ -1710,6 +1720,28 @@ int n;
     }
   }
 
+  /* [SPATIAL] 2026-04-01: inter-group timing offset (ms → ticks) */
+  if (spatial_active && tempo > 0) {
+    int voicenum = trackdescriptor[tracknumber].voicenum;
+    int gi, vi, my_group;
+    my_group = -1;
+    for (gi = 0; gi < spatial_group_count && my_group < 0; gi++) {
+        for (vi = 0; vi < spatial_group_voice_count[gi]; vi++) {
+            if (spatial_group_voices[gi][vi] == voicenum) {
+                my_group = gi;
+                break;
+            }
+        }
+    }
+    if (my_group > 0) {
+        int ms = spatial_delay_ms[0][my_group];
+        if (ms > 0) {
+            int ticks = (int)((long)ms * division * 1000L / tempo);
+            delta_time += ticks;
+        }
+    }
+  }
+
   /* BREATH: insert micro-rest before note at phrase boundaries */
   if (breath_ticks > 0) {
       if (breath_pending) {
@@ -2607,6 +2639,68 @@ int noteson;
       artic_phrase_end = 0.0;
       artic_staccato = 0.0;
       artic_prev_pitch = -1;
+      done = 1;
+  }
+
+  /* [SPATIAL] 2026-04-01 */
+  else if (strcmp(command, "spatialgroup") == 0) {
+      char gname;
+      int gidx, gi;
+      gname = *p;
+      p++;
+      skipspace(&p);
+      /* find or create group */
+      gidx = -1;
+      for (gi = 0; gi < spatial_group_count; gi++) {
+          if (spatial_group_names[gi] == gname) { gidx = gi; break; }
+      }
+      if (gidx < 0 && spatial_group_count < SPATIAL_MAX_GROUPS) {
+          gidx = spatial_group_count++;
+          spatial_group_names[gidx] = gname;
+          spatial_group_voice_count[gidx] = 0;
+      }
+      if (gidx >= 0) {
+          spatial_group_voice_count[gidx] = 0;
+          /* skip optional keyword like 'voices' */
+          while (*p != '\0' && !(*p >= '0' && *p <= '9')) p++;
+          while (*p >= '0' && *p <= '9' &&
+                 spatial_group_voice_count[gidx] < SPATIAL_MAX_VOICES) {
+              spatial_group_voices[gidx][spatial_group_voice_count[gidx]++] =
+                  readnump(&p);
+              if (*p == ',') p++;
+              skipspace(&p);
+          }
+          spatial_active = 1;
+      }
+      done = 1;
+  }
+
+  else if (strcmp(command, "spatialdelay") == 0) {
+      char gname1, gname2;
+      int idx1, idx2, gi;
+      idx1 = -1;
+      idx2 = -1;
+      gname1 = *p;
+      p++;
+      skipspace(&p);
+      gname2 = *p;
+      p++;
+      skipspace(&p);
+      for (gi = 0; gi < spatial_group_count; gi++) {
+          if (spatial_group_names[gi] == gname1) idx1 = gi;
+          if (spatial_group_names[gi] == gname2) idx2 = gi;
+      }
+      if (idx1 >= 0 && idx2 >= 0) {
+          int ms;
+          ms = readnump(&p);
+          spatial_delay_ms[idx1][idx2] = ms;
+          spatial_delay_ms[idx2][idx1] = ms;
+      }
+      done = 1;
+  }
+
+  /* [TRANSFORM] 2026-04-01 — parsed by apply_transforms() pre-pass */
+  else if (strncmp(command, "transform", 9) == 0) {
       done = 1;
   }
 
