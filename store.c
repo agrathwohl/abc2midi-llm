@@ -6485,90 +6485,128 @@ for (i=0;i<notes;i++) {
 
 /* [TRANSFORM] 2026-04-01 */
 #define MAX_TRANSFORM_NOTES 4096
+#define MAX_TRANSFORMS 16
 static void apply_transforms()
-/* pre-pass: read source voice, apply transforms, replace target voice */
+/* pre-pass: per-voice transforms with chaining support */
 {
-  int j, k;
-  int transform_source = -1;
-  int transform_target = -1;
-  int transform_retrograde = 0;
-  int transform_invert = 0;
-  int transform_invert_axis = 60;
-  int transform_pitchshift = 0;
-  double transform_timescale = 1.0;
-  int transform_fragment_start = 0;
-  int transform_fragment_end = -1;
-  int transform_delay = 0;
-  int found_transform = 0;
+  int j, k, ti;
+  int current_voice;
   char *s;
+  int nxf;
+  int in_voice;
+  int target_start, target_end, insert_pos;
+  int t_count;
+
+  struct xform {
+    int target_voice;
+    int source_voice;
+    int retrograde;
+    int invert;
+    int invert_axis;
+    double fragment_prob;
+    int pitchshift;
+    double timescale;
+    int delay;
+  };
+  struct xform xf[MAX_TRANSFORMS];
+
   static featuretype t_feature[MAX_TRANSFORM_NOTES];
   static int t_pitch[MAX_TRANSFORM_NOTES];
   static int t_num[MAX_TRANSFORM_NOTES];
   static int t_denom[MAX_TRANSFORM_NOTES];
-  int t_count = 0;
-  int in_voice, bar_count;
-  int target_start, target_end;
-  int insert_pos;
 
-  /* Phase 1: scan for transform parameters in DYNAMIC entries */
+  /* Phase 1: collect per-voice transform declarations */
+  nxf = 0;
+  current_voice = -1;
   for (j = 0; j < notes; j++) {
+    if (feature[j] == VOICE) {
+      current_voice = pitch[j];
+      continue;
+    }
     if (feature[j] != DYNAMIC) continue;
     s = atext[pitch[j]];
     if (strncmp(s, "transform", 9) != 0) continue;
     s += 9;
+
     if (strncmp(s, "source", 6) == 0) {
-      sscanf(s + 6, "%d", &transform_source);
-      found_transform = 1;
-    } else if (strncmp(s, "target", 6) == 0) {
-      sscanf(s + 6, "%d", &transform_target);
-    } else if (strncmp(s, "retrograde", 10) == 0) {
-      transform_retrograde = 1;
-    } else if (strncmp(s, "invertaxis", 10) == 0) {
-      sscanf(s + 10, "%d", &transform_invert_axis);
-    } else if (strncmp(s, "invert", 6) == 0) {
-      transform_invert = 1;
-    } else if (strncmp(s, "pitchshift", 10) == 0) {
-      sscanf(s + 10, "%d", &transform_pitchshift);
-    } else if (strncmp(s, "timescale", 9) == 0) {
-      sscanf(s + 9, "%lf", &transform_timescale);
-    } else if (strncmp(s, "fragment", 8) == 0) {
-      sscanf(s + 8, "%d %d", &transform_fragment_start, &transform_fragment_end);
-    } else if (strncmp(s, "delay", 5) == 0) {
-      sscanf(s + 5, "%d", &transform_delay);
+      /* new transform: target = current voice (per-voice) or -1 (global) */
+      if (nxf >= MAX_TRANSFORMS) continue;
+      xf[nxf].target_voice = current_voice;
+      xf[nxf].source_voice = -1;
+      xf[nxf].retrograde = 0;
+      xf[nxf].invert = 0;
+      xf[nxf].invert_axis = 60;
+      xf[nxf].fragment_prob = 0.0;
+      xf[nxf].pitchshift = 0;
+      xf[nxf].timescale = 1.0;
+      xf[nxf].delay = 0;
+      sscanf(s + 6, "%d", &xf[nxf].source_voice);
+      nxf++;
     } else if (strncmp(s, "off", 3) == 0) {
-      return;
+      /* remove most recent transform for this voice */
+      if (nxf > 0 && xf[nxf - 1].target_voice == current_voice) nxf--;
+    } else if (nxf > 0) {
+      ti = nxf - 1;
+      /* in per-voice mode, only update if this voice owns the last xf */
+      if (current_voice >= 0 && xf[ti].target_voice != current_voice) continue;
+      if (strncmp(s, "target", 6) == 0) {
+        /* global scope: set explicit target; per-voice: silently accepted */
+        if (xf[ti].target_voice < 0) sscanf(s + 6, "%d", &xf[ti].target_voice);
+      } else if (strncmp(s, "retrograde", 10) == 0) {
+        xf[ti].retrograde = 1;
+      } else if (strncmp(s, "invertaxis", 10) == 0) {
+        sscanf(s + 10, "%d", &xf[ti].invert_axis);
+      } else if (strncmp(s, "invert", 6) == 0) {
+        xf[ti].invert = 1;
+      } else if (strncmp(s, "pitchshift", 10) == 0) {
+        sscanf(s + 10, "%d", &xf[ti].pitchshift);
+      } else if (strncmp(s, "timescale", 9) == 0) {
+        sscanf(s + 9, "%lf", &xf[ti].timescale);
+      } else if (strncmp(s, "fragment", 8) == 0) {
+        sscanf(s + 8, "%lf", &xf[ti].fragment_prob);
+      } else if (strncmp(s, "delay", 5) == 0) {
+        sscanf(s + 5, "%d", &xf[ti].delay);
+      }
     }
   }
-  if (!found_transform || transform_source < 0 || transform_target < 0) return;
-  if (verbose > 1) printf("apply_transforms: source=%d target=%d\n",
-                           transform_source, transform_target);
 
-  /* Phase 2: collect source voice features (NOTE, REST, bars) */
-  in_voice = 0;
-  bar_count = 0;
-  for (j = 0; j < notes; j++) {
-    if (feature[j] == VOICE) {
-      in_voice = (pitch[j] == transform_source);
-      if (in_voice) bar_count = 0;
-      continue;
-    }
-    if (!in_voice) continue;
-    if (t_count >= MAX_TRANSFORM_NOTES) break;
-    if (feature[j] == SINGLE_BAR || feature[j] == DOUBLE_BAR) {
-      bar_count++;
-      if (transform_fragment_end >= 0 && bar_count > transform_fragment_end + 1)
-        break;
-      if (bar_count > transform_fragment_start) {
-        t_feature[t_count] = feature[j];
-        t_pitch[t_count] = pitch[j];
-        t_num[t_count] = num[j];
-        t_denom[t_count] = denom[j];
-        t_count++;
+  if (nxf == 0) return;
+
+  /* Sort by target voice number for chaining (bubble sort, nxf is small) */
+  {
+    int swapped, i2;
+    struct xform tmp;
+    do {
+      swapped = 0;
+      for (i2 = 0; i2 < nxf - 1; i2++) {
+        if (xf[i2].target_voice > xf[i2 + 1].target_voice) {
+          tmp = xf[i2];
+          xf[i2] = xf[i2 + 1];
+          xf[i2 + 1] = tmp;
+          swapped = 1;
+        }
       }
-    } else if (feature[j] == NOTE || feature[j] == REST) {
-      if (transform_fragment_end >= 0 && bar_count > transform_fragment_end)
+    } while (swapped);
+  }
+
+  /* Phase 2-5: apply each transform in voice order */
+  for (ti = 0; ti < nxf; ti++) {
+    if (xf[ti].source_voice < 0 || xf[ti].target_voice < 0) continue;
+    if (verbose > 1) printf("apply_transforms: source=%d target=%d\n",
+                             xf[ti].source_voice, xf[ti].target_voice);
+
+    /* Phase 2: collect source voice features */
+    t_count = 0;
+    in_voice = 0;
+    for (j = 0; j < notes; j++) {
+      if (feature[j] == VOICE) {
+        in_voice = (pitch[j] == xf[ti].source_voice);
         continue;
-      if (bar_count >= transform_fragment_start) {
+      }
+      if (!in_voice) continue;
+      if (t_count >= MAX_TRANSFORM_NOTES) break;
+      if (feature[j] == NOTE || feature[j] == REST ||
+          feature[j] == SINGLE_BAR || feature[j] == DOUBLE_BAR) {
         t_feature[t_count] = feature[j];
         t_pitch[t_count] = pitch[j];
         t_num[t_count] = num[j];
@@ -6576,131 +6614,143 @@ static void apply_transforms()
         t_count++;
       }
     }
-  }
-  if (t_count == 0) return;
+    if (t_count == 0) continue;
 
-  /* Phase 3: apply transforms */
+    /* Phase 3: apply transforms */
 
-  /* 3a: retrograde - reverse NOTE/REST entries, bars stay in place */
-  if (transform_retrograde) {
-    int left = 0, right = t_count - 1;
-    while (left < right) {
-      while (left < right &&
-             t_feature[left] != NOTE && t_feature[left] != REST) left++;
-      while (left < right &&
-             t_feature[right] != NOTE && t_feature[right] != REST) right--;
-      if (left < right) {
-        featuretype tf; int tp, tn, td;
-        tf = t_feature[left]; t_feature[left] = t_feature[right];
-        t_feature[right] = tf;
-        tp = t_pitch[left]; t_pitch[left] = t_pitch[right];
-        t_pitch[right] = tp;
-        tn = t_num[left]; t_num[left] = t_num[right];
-        t_num[right] = tn;
-        td = t_denom[left]; t_denom[left] = t_denom[right];
-        t_denom[right] = td;
-        left++;
-        right--;
+    /* 3a: retrograde - reverse NOTE/REST entries, bars stay in place */
+    if (xf[ti].retrograde) {
+      int left = 0, right = t_count - 1;
+      while (left < right) {
+        while (left < right &&
+               t_feature[left] != NOTE && t_feature[left] != REST) left++;
+        while (left < right &&
+               t_feature[right] != NOTE && t_feature[right] != REST) right--;
+        if (left < right) {
+          featuretype tf; int tp, tn, td;
+          tf = t_feature[left]; t_feature[left] = t_feature[right];
+          t_feature[right] = tf;
+          tp = t_pitch[left]; t_pitch[left] = t_pitch[right];
+          t_pitch[right] = tp;
+          tn = t_num[left]; t_num[left] = t_num[right];
+          t_num[right] = tn;
+          td = t_denom[left]; t_denom[left] = t_denom[right];
+          t_denom[right] = td;
+          left++;
+          right--;
+        }
       }
     }
-  }
 
-  /* 3b: invert around axis */
-  if (transform_invert) {
+    /* 3b: invert around axis */
+    if (xf[ti].invert) {
+      for (j = 0; j < t_count; j++) {
+        if (t_feature[j] == NOTE) {
+          t_pitch[j] = 2 * xf[ti].invert_axis - t_pitch[j];
+          if (t_pitch[j] < 0) t_pitch[j] = 0;
+          if (t_pitch[j] > 127) t_pitch[j] = 127;
+        }
+      }
+    }
+
+    /* 3c: pitch shift */
+    if (xf[ti].pitchshift != 0) {
+      for (j = 0; j < t_count; j++) {
+        if (t_feature[j] == NOTE) {
+          t_pitch[j] += xf[ti].pitchshift;
+          if (t_pitch[j] < 0) t_pitch[j] = 0;
+          if (t_pitch[j] > 127) t_pitch[j] = 127;
+        }
+      }
+    }
+
+    /* 3d: fragment - probabilistic note dropping */
+    if (xf[ti].fragment_prob > 0.0 && xf[ti].fragment_prob < 1.0) {
+      for (j = 0; j < t_count; j++) {
+        if (t_feature[j] == NOTE) {
+          if ((double)rand() / RAND_MAX > xf[ti].fragment_prob) {
+            t_feature[j] = REST; /* same duration, becomes silence */
+          }
+        }
+      }
+    }
+
+    /* 3e: time scale */
+    if (xf[ti].timescale != 1.0) {
+      for (j = 0; j < t_count; j++) {
+        if (t_feature[j] == NOTE || t_feature[j] == REST) {
+          t_num[j] = (int)(t_num[j] * xf[ti].timescale);
+          if (t_num[j] < 1) t_num[j] = 1;
+        }
+      }
+    }
+
+    /* Phase 4: clear target voice content (REPLACE semantics) */
+    target_start = -1;
+    target_end = -1;
+    in_voice = 0;
+    for (j = 0; j < notes; j++) {
+      if (feature[j] == VOICE) {
+        if (pitch[j] == xf[ti].target_voice) {
+          in_voice = 1;
+          target_start = j + 1;
+        } else if (in_voice) {
+          target_end = j;
+          break;
+        }
+      }
+    }
+    if (in_voice && target_end < 0) target_end = notes;
+    if (target_start < 0) continue;
+
+    /* remove NOTE, REST, bars from target region (backwards) */
+    for (j = target_end - 1; j >= target_start; j--) {
+      if (feature[j] == NOTE || feature[j] == REST ||
+          feature[j] == SINGLE_BAR || feature[j] == DOUBLE_BAR) {
+        removefeature(j);
+      }
+    }
+
+    /* Phase 5: find insertion point in cleared target voice */
+    insert_pos = -1;
+    in_voice = 0;
+    for (j = 0; j < notes; j++) {
+      if (feature[j] == VOICE) {
+        if (pitch[j] == xf[ti].target_voice) {
+          insert_pos = j + 1;
+          in_voice = 1;
+        } else if (in_voice) {
+          insert_pos = j;
+          break;
+        }
+      }
+    }
+    if (insert_pos < 0) continue;
+
+    /* skip header features in target voice (KEY, TIME_SIG, etc.) */
+    while (insert_pos < notes && feature[insert_pos] != VOICE &&
+           feature[insert_pos] != NOTE && feature[insert_pos] != REST &&
+           feature[insert_pos] != SINGLE_BAR &&
+           feature[insert_pos] != DOUBLE_BAR) {
+      insert_pos++;
+    }
+
+    /* insert delay rests (whole-bar rests) */
+    for (k = 0; k < xf[ti].delay; k++) {
+      insertfeature(REST, 0, time_num, time_denom, insert_pos);
+      insert_pos++;
+      insertfeature(SINGLE_BAR, 0, 0, 0, insert_pos);
+      insert_pos++;
+    }
+
+    /* insert transformed content */
     for (j = 0; j < t_count; j++) {
-      if (t_feature[j] == NOTE) {
-        t_pitch[j] = 2 * transform_invert_axis - t_pitch[j];
-        if (t_pitch[j] < 0) t_pitch[j] = 0;
-        if (t_pitch[j] > 127) t_pitch[j] = 127;
-      }
+      insertfeature(t_feature[j], t_pitch[j], t_num[j], t_denom[j], insert_pos);
+      insert_pos++;
     }
-  }
-
-  /* 3c: pitch shift */
-  if (transform_pitchshift != 0) {
-    for (j = 0; j < t_count; j++) {
-      if (t_feature[j] == NOTE) {
-        t_pitch[j] += transform_pitchshift;
-        if (t_pitch[j] < 0) t_pitch[j] = 0;
-        if (t_pitch[j] > 127) t_pitch[j] = 127;
-      }
-    }
-  }
-
-  /* 3d: time scale */
-  if (transform_timescale != 1.0) {
-    for (j = 0; j < t_count; j++) {
-      if (t_feature[j] == NOTE || t_feature[j] == REST) {
-        t_num[j] = (int)(t_num[j] * transform_timescale);
-        if (t_num[j] < 1) t_num[j] = 1;
-      }
-    }
-  }
-
-  /* Phase 4: clear target voice content (REPLACE semantics) */
-  target_start = -1;
-  target_end = -1;
-  in_voice = 0;
-  for (j = 0; j < notes; j++) {
-    if (feature[j] == VOICE) {
-      if (pitch[j] == transform_target) {
-        in_voice = 1;
-        target_start = j + 1;
-      } else if (in_voice) {
-        target_end = j;
-        break;
-      }
-    }
-  }
-  if (in_voice && target_end < 0) target_end = notes;
-  if (target_start < 0) return;
-
-  /* remove NOTE, REST, bars from target region (backwards to preserve indices) */
-  for (j = target_end - 1; j >= target_start; j--) {
-    if (feature[j] == NOTE || feature[j] == REST ||
-        feature[j] == SINGLE_BAR || feature[j] == DOUBLE_BAR) {
-      removefeature(j);
-    }
-  }
-
-  /* Phase 5: find insertion point in cleared target voice */
-  insert_pos = -1;
-  in_voice = 0;
-  for (j = 0; j < notes; j++) {
-    if (feature[j] == VOICE) {
-      if (pitch[j] == transform_target) {
-        insert_pos = j + 1;
-        in_voice = 1;
-      } else if (in_voice) {
-        insert_pos = j;
-        break;
-      }
-    }
-  }
-  if (insert_pos < 0) return;
-
-  /* skip header features in target voice (KEY, TIME_SIG, etc.) */
-  while (insert_pos < notes && feature[insert_pos] != VOICE &&
-         feature[insert_pos] != NOTE && feature[insert_pos] != REST &&
-         feature[insert_pos] != SINGLE_BAR &&
-         feature[insert_pos] != DOUBLE_BAR) {
-    insert_pos++;
-  }
-
-  /* insert delay rests (whole-bar rests) */
-  for (k = 0; k < transform_delay; k++) {
-    insertfeature(REST, 0, time_num, time_denom, insert_pos);
-    insert_pos++;
-    insertfeature(SINGLE_BAR, 0, 0, 0, insert_pos);
-    insert_pos++;
-  }
-
-  /* insert transformed content */
-  for (j = 0; j < t_count; j++) {
-    insertfeature(t_feature[j], t_pitch[j], t_num[j], t_denom[j], insert_pos);
-    insert_pos++;
-  }
-  if (verbose > 1) printf("apply_transforms: inserted %d features\n", t_count);
+    if (verbose > 1) printf("apply_transforms: voice %d: inserted %d features\n",
+                             xf[ti].target_voice, t_count);
+  } /* end for each transform */
 }
 
 

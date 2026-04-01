@@ -176,20 +176,19 @@ SPATIAL simulates physical distance between groups of voices by adding milliseco
 
 ### %%TRANSFORM — Cross-Voice Algorithmic Transformation
 
-TRANSFORM reads note data from a source voice, applies a chain of algorithmic operations, and replaces the target voice's content with the result. This is a pre-generation pass that modifies the feature arrays before MIDI output. Operations are applied in order: fragment → retrograde → invert → pitch shift → time scale. Pitch values are clamped to 0–127. Requires both source and target to be specified.
+TRANSFORM reads note data from a source voice, applies a chain of algorithmic operations, and replaces the target voice's content with the result. Declared per-voice: place `%%TRANSFORM source N` inside a voice section to make that voice a transform target. Multiple voices can transform the same source with different operations. Transforms are processed in voice-number order, enabling chaining (V3 can transform V2 which transforms V1). Operations are applied in order: retrograde → invert → pitch shift → fragment → time scale. Pitch values are clamped to 0–127. Target voices need no placeholder notes — content is generated from the source at render time.
 
 | Directive                 | Parameters              | Effect                                                                  |
 | ------------------------- | ----------------------- | ----------------------------------------------------------------------- |
-| `%%TRANSFORM source`      | `N` (voice number)      | Set source voice to copy notes from                                     |
-| `%%TRANSFORM target`      | `N` (voice number)      | Set target voice to replace with transformed notes                      |
+| `%%TRANSFORM source`      | `N` (voice number)      | Set source voice; the voice containing this directive becomes the target |
 | `%%TRANSFORM retrograde`  |                         | Reverse the note/rest sequence (bar lines stay in place)                |
 | `%%TRANSFORM invert`      |                         | Mirror pitches around the inversion axis                                |
 | `%%TRANSFORM invertaxis`  | `N` (MIDI pitch 0–127)  | Set inversion axis (default 60 = middle C)                              |
-| `%%TRANSFORM fragment`    | `S E` (start/end bars)  | Extract only bars S through E from source (0-indexed)                   |
+| `%%TRANSFORM fragment`    | `F` (float 0.0–1.0)    | Probabilistic note dropping: F = fraction of notes that survive         |
 | `%%TRANSFORM pitchshift`  | `N` (semitones ±)       | Transpose all pitches by N semitones                                    |
 | `%%TRANSFORM timescale`   | `F` (float)             | Scale all note/rest durations by factor F                               |
 | `%%TRANSFORM delay`       | `N` (bars)              | Prepend N bars of whole-bar rests before transformed content            |
-| `%%TRANSFORM off`         |                         | Disable transform (no operation performed)                              |
+| `%%TRANSFORM off`         |                         | Disable transform for this voice                                        |
 
 ## Upstream
 
