@@ -280,6 +280,19 @@ int spatial_group_voice_count[SPATIAL_MAX_GROUPS];
 int spatial_delay_ms[SPATIAL_MAX_GROUPS][SPATIAL_MAX_GROUPS];
 int spatial_active = 0;
 
+/* [DYNAMICS] 2026-04-01: continuous velocity interpolation */
+int dynamics_curve = 0;             /* 0=off, 1=linear, 2=exponential, 3=logarithmic */
+double dynamics_attack = 1.0;       /* velocity multiplier for first note after change */
+int dynamics_transition = 8;        /* notes to interpolate over */
+int dynamics_prev_loud = 105;       /* previous loudnote before transition */
+int dynamics_prev_med = 95;
+int dynamics_prev_soft = 80;
+int dynamics_target_loud = 105;     /* target loudnote after transition */
+int dynamics_target_med = 95;
+int dynamics_target_soft = 80;
+int dynamics_notes_done = 0;        /* notes played since transition start */
+int dynamics_in_transition = 0;     /* currently interpolating? */
+
 /* channel 10 drum handling */
 int drum_map[256];
 
@@ -1690,6 +1703,26 @@ int n;
 {
   int  vel;
   vel = 0; /* [SS] 2013-11-04 */
+
+  /* [DYNAMICS] 2026-04-01: smooth velocity interpolation */
+  if (dynamics_in_transition && dynamics_curve > 0) {
+      double t;
+      if (dynamics_notes_done >= dynamics_transition) {
+          loudnote = dynamics_target_loud;
+          mednote = dynamics_target_med;
+          softnote = dynamics_target_soft;
+          dynamics_in_transition = 0;
+      } else {
+          t = (double)dynamics_notes_done / (double)dynamics_transition;
+          if (dynamics_curve == 2) t = t * t;
+          else if (dynamics_curve == 3) t = sqrt(t);
+          loudnote = dynamics_prev_loud + (int)((dynamics_target_loud - dynamics_prev_loud) * t);
+          mednote = dynamics_prev_med + (int)((dynamics_target_med - dynamics_prev_med) * t);
+          softnote = dynamics_prev_soft + (int)((dynamics_target_soft - dynamics_prev_soft) * t);
+      }
+      dynamics_notes_done++;
+  }
+
   if (beatmodel != 0)  /* [SS] 2011-08-17 */
      stress_factors (n,   &vel);
   else note_beat(n,&vel);
@@ -1762,6 +1795,13 @@ int n;
           if (vel > 127) vel = 127;
           if (vel < 1) vel = 1;
       }
+  }
+
+  /* [DYNAMICS] 2026-04-01: attack boost on first note of transition */
+  if (dynamics_in_transition && dynamics_notes_done == 1 && dynamics_attack != 1.0) {
+      vel = (int)(vel * dynamics_attack);
+      if (vel > 127) vel = 127;
+      if (vel < 1) vel = 1;
   }
 
   if (channel == 9) noteon_data(pitch[n],bentpitch[n],channel,vel);
@@ -2258,32 +2298,65 @@ int noteson;
   }
 
   else if (strcmp(command, "beat") == 0) {
+    int new_loud, new_med, new_soft;
     skipspace(&p);
-    loudnote = readnump(&p);
+    new_loud = readnump(&p);
     skipspace(&p);
-    mednote = readnump(&p);
+    new_med = readnump(&p);
     skipspace(&p);
-    softnote = readnump(&p);
+    new_soft = readnump(&p);
     skipspace(&p);
     beat = readnump(&p);
     if (beat == 0) {
       beat = barsize;
     };
+    if (dynamics_curve > 0) {
+      dynamics_prev_loud = loudnote;
+      dynamics_prev_med = mednote;
+      dynamics_prev_soft = softnote;
+      dynamics_target_loud = new_loud;
+      dynamics_target_med = new_med;
+      dynamics_target_soft = new_soft;
+      dynamics_notes_done = 0;
+      dynamics_in_transition = 1;
+    } else {
+      loudnote = new_loud;
+      mednote = new_med;
+      softnote = new_soft;
+    }
     done = 1;
   }
 
   else if (strcmp(command, "beatmod") == 0) {
     skipspace(&p);
     velocity_increment = readsnump(&p);
-    loudnote += velocity_increment;
-    mednote  += velocity_increment;
-    softnote += velocity_increment;
-    if (loudnote > 127) loudnote = 127;
-    if (mednote  > 127) mednote = 127;
-    if (softnote > 127) softnote = 127;
-    if (loudnote < 0)   loudnote = 0;
-    if (mednote  < 0)   mednote = 0;
-    if (softnote < 0)   softnote = 0;
+    if (dynamics_curve > 0) {
+      int tl, tm, ts;
+      dynamics_prev_loud = loudnote;
+      dynamics_prev_med = mednote;
+      dynamics_prev_soft = softnote;
+      tl = loudnote + velocity_increment;
+      tm = mednote + velocity_increment;
+      ts = softnote + velocity_increment;
+      if (tl > 127) tl = 127; if (tl < 0) tl = 0;
+      if (tm > 127) tm = 127; if (tm < 0) tm = 0;
+      if (ts > 127) ts = 127; if (ts < 0) ts = 0;
+      dynamics_target_loud = tl;
+      dynamics_target_med = tm;
+      dynamics_target_soft = ts;
+      dynamics_notes_done = 0;
+      dynamics_in_transition = 1;
+    } else {
+      loudnote += velocity_increment;
+      mednote  += velocity_increment;
+      softnote += velocity_increment;
+      if (loudnote > 127) loudnote = 127;
+      if (mednote  > 127) mednote = 127;
+      if (softnote > 127) softnote = 127;
+      if (loudnote < 0)   loudnote = 0;
+      if (mednote  < 0)   mednote = 0;
+      if (softnote < 0)   softnote = 0;
+    }
     done = 1;
     }
 
@@ -2701,6 +2774,34 @@ int noteson;
 
   /* [TRANSFORM] 2026-04-01 — parsed by apply_transforms() pre-pass */
   else if (strncmp(command, "transform", 9) == 0) {
+      done = 1;
+  }
+
+  /* [DYNAMICS] 2026-04-01 */
+  else if (strcmp(command, "dynamicscurve") == 0) {
+      skipspace(&p);
+      if (strncmp(p, "linear", 6) == 0) dynamics_curve = 1;
+      else if (strncmp(p, "exponential", 11) == 0) dynamics_curve = 2;
+      else if (strncmp(p, "logarithmic", 11) == 0) dynamics_curve = 3;
+      done = 1;
+  }
+  else if (strcmp(command, "dynamicstransition") == 0) {
+      skipspace(&p);
+      dynamics_transition = readnump(&p);
+      if (dynamics_transition < 1) dynamics_transition = 1;
+      done = 1;
+  }
+  else if (strcmp(command, "dynamicsattack") == 0) {
+      skipspace(&p);
+      sscanf(p, "%lf", &dynamics_attack);
+      done = 1;
+  }
+  else if (strcmp(command, "dynamicsoff") == 0) {
+      dynamics_curve = 0;
+      dynamics_attack = 1.0;
+      dynamics_transition = 8;
+      dynamics_in_transition = 0;
+      dynamics_notes_done = 0;
       done = 1;
   }
 
@@ -3156,6 +3257,17 @@ static void starttrack(int tracknum)
   artic_phrase_end = 0.0;
   artic_staccato = 0.0;
   artic_prev_pitch = -1;
+  dynamics_curve = 0; /* [DYNAMICS] 2026-04-01 */
+  dynamics_attack = 1.0;
+  dynamics_transition = 8;
+  dynamics_in_transition = 0;
+  dynamics_notes_done = 0;
+  dynamics_prev_loud = 105;
+  dynamics_prev_med = 95;
+  dynamics_prev_soft = 80;
+  dynamics_target_loud = 105;
+  dynamics_target_med = 95;
+  dynamics_target_soft = 80;
 /* make sure meter is reinitialized for every track
  * in case it was changed in the middle of the last track */
   set_meter(header_time_num,header_time_denom);

@@ -1,0 +1,27 @@
+X:1
+T:DYNAMICS Test
+M:4/4
+L:1/4
+K:C
+%%DYNAMICS curve linear
+%%DYNAMICS transition 8
+%%DYNAMICS attack 1.3
+%
+% Start piano, crescendo to forte over 8 notes (linear curve)
+!p! C D E F | G A B c |
+% Now jump to fortissimo — should glide over 8 notes
+!ff! c B A G | F E D C |
+%
+% Switch to exponential curve (slow start, fast finish)
+%%DYNAMICS curve exponential
+!p! C E G c | e g a b |
+!f! c' b a g | e c G E |
+%
+% Logarithmic curve (fast start, slow finish)
+%%DYNAMICS curve logarithmic
+%%DYNAMICS transition 4
+!pp! C D E F | !fff! G A B c |
+%
+% Turn off — should revert to instant jumps
+%%DYNAMICS off
+!p! C D E F | !ff! G A B c |]

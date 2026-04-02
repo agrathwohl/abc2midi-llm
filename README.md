@@ -190,6 +190,17 @@ TRANSFORM reads note data from a source voice, applies a chain of algorithmic op
 | `%%TRANSFORM delay`       | `N` (bars)              | Prepend N bars of whole-bar rests before transformed content            |
 | `%%TRANSFORM off`         |                         | Disable transform for this voice                                        |
 
+### DYNAMICS
+
+Smooth velocity interpolation between dynamic marks. Instead of instant jumps (e.g. `!p!` to `!ff!`), velocities glide over N notes using a selectable curve. An attack multiplier boosts the first note after each change.
+
+| Directive                  | Parameter               | Effect                                                                  |
+|----------------------------|-------------------------|-------------------------------------------------------------------------|
+| `%%DYNAMICS curve`         | `linear\|exponential\|logarithmic` | Set interpolation curve: linear (t), exponential (t²), logarithmic (√t) |
+| `%%DYNAMICS transition`    | `N` (notes, default 8)  | Number of notes over which to interpolate                               |
+| `%%DYNAMICS attack`        | `F` (float, default 1.0)| Velocity multiplier for the first note after a dynamic change           |
+| `%%DYNAMICS off`           |                         | Disable smooth dynamics, revert to instant changes                      |
+
 ## Upstream
 
 The original abcMIDI package is maintained at [sourceforge](https://sourceforge.net/projects/abc/) and on the [runabc](https://ifdo.ca/~seymour/runabc/top.html) web page.

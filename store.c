@@ -2570,6 +2570,33 @@ static void event_transform(char *s)
   if (verbose > 1) printf("event_transform: %s\n", s);
 }
 
+/* [DYNAMICS] 2026-04-01 */
+static void event_dynamics(char *s)
+{
+  char msg[256];
+  char command[40];
+  char *p;
+
+  p = s;
+  skipspace(&p);
+  readstr(command, &p, 40);
+
+  if (strcmp(command, "curve") != 0 &&
+      strcmp(command, "transition") != 0 &&
+      strcmp(command, "attack") != 0 &&
+      strcmp(command, "off") != 0) {
+    char errmsg[100];
+    snprintf(errmsg, sizeof(errmsg),
+             "%%%%DYNAMICS command \"%s\" not recognized", command);
+    event_warning(errmsg);
+  }
+
+  snprintf(msg, sizeof(msg), "dynamics%s%s", command, p);
+  textfeature(DYNAMIC, msg);
+
+  if (verbose > 1) printf("event_dynamics: %s\n", s);
+}
+
 /* [GRAVITY] 2026-03-31 */
 static void event_gravity(char *s)
 {
@@ -2644,13 +2671,19 @@ void event_specific(char *package, char *s, int in_I)
      return;
      }
 
-  if (strcmp(package, "TRANSFORM") == 0) {
-     event_transform(s);
-     return;
-     }
+   if (strcmp(package, "TRANSFORM") == 0) {
+      event_transform(s);
+      return;
+      }
+
+/* [DYNAMICS] 2026-04-01 */
+   if (strcmp(package, "DYNAMICS") == 0) {
+      event_dynamics(s);
+      return;
+      }
 
 /* [SS] 2015-06-01 */
-  if (strcmp(package,"MIDIdef") == 0) {
+   if (strcmp(package,"MIDIdef") == 0) {
      parse_mididef(s);
      return;
      }
@@ -2840,6 +2873,12 @@ char *package, *s;
 
   if (strcmp(package, "TRANSFORM") == 0) {
     if (verbose > 1) printf("event_specific_in_header: TRANSFORM %s (stored)\n", s);
+    return;
+  }
+
+  /* [DYNAMICS] 2026-04-01 */
+  if (strcmp(package, "DYNAMICS") == 0) {
+    if (verbose > 1) printf("event_specific_in_header: DYNAMICS %s (stored)\n", s);
     return;
   }
 
