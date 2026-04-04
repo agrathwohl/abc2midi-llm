@@ -228,6 +228,7 @@ int setOutFileCreator(char *fileName,unsigned long theType,
 #include <string.h>
 #include <stdlib.h>
 #include <ctype.h>
+#include <time.h>
 #else
 extern char* strchr();
 extern void reduce();
@@ -516,6 +517,13 @@ void calculate_stress_parameters();
 extern int inbody; /* from parseabc.c [SS] 2009-12-18 */
 extern int lineposition; /* from parseabc.c [SS] 2011-07-18 */
 extern int beatmodel; /* from genmidi.c [SS] 2011-08-26 */
+extern unsigned int global_seed; /* from genmidi.c [SEED] 2026-04-02 */
+extern int seed_was_set;         /* from genmidi.c [SEED] 2026-04-02 */
+/* [FRAGMAP] 2026-04-02 */
+FILE *fragmap_file = NULL;
+int fragmap_enabled = 0;
+char *fragmap_filename = NULL;
+int fragmap_first_voice = 1;
 int stress_pattern_loaded; /* [SS] 2018-04-16 */
 int stressmodel;
 
@@ -1012,6 +1020,25 @@ char **filename;
   if (getarg("-OCC",argc,argv) != -1) oldchordconvention=1;
   if (getarg("-silent",argc,argv) != -1) silent = 1; /* [SS] 2014-10-16 */
 
+  arg = getarg("-seed", argc, argv);
+  if (arg != -1) {
+    if (argc > arg) {
+      n = sscanf(argv[arg], "%d", &m);
+      if (n > 0) {
+        global_seed = (unsigned int)m;
+        seed_was_set = 1;
+      }
+    }
+  }
+
+  arg = getarg("-fragmap", argc, argv);
+  if (arg != -1) {
+    if (argc > arg) {
+      fragmap_filename = argv[arg];
+      fragmap_enabled = 1;
+    }
+  }
+
   maxnotes = 500;
   /* allocate space for notes */
   pitch = checkmalloc(maxnotes*sizeof(int));
@@ -1057,6 +1084,8 @@ char **filename;
     printf("        -OCC old chord convention (eg. +CE+)\n");
     printf("        -TT tune to A =  <frequency>\n");
     printf("        -CSM <filename> load custom stress models from file\n");
+    printf("        -seed <N> set random seed for reproducible output\n");
+    printf("        -fragmap <file> write fragment decision map (JSON)\n");
     printf(" The default action is to write a MIDI file for each abc tune\n");
     printf(" with the filename <stem>N.mid, where <stem> is the filestem\n");
     printf(" of the abc file and N is the tune reference number. If the -o\n");
@@ -2570,6 +2599,63 @@ static void event_transform(char *s)
   if (verbose > 1) printf("event_transform: %s\n", s);
 }
 
+/* [SHADOW] 2026-04-02 */
+static void event_shadow(char *s)
+{
+  char msg[256];
+  char command[40];
+  char *p;
+
+  p = s;
+  skipspace(&p);
+  readstr(command, &p, 40);
+
+  if (strcmp(command, "source") != 0 &&
+      strcmp(command, "mode") != 0 &&
+      strcmp(command, "probability") != 0 &&
+      strcmp(command, "transpose") != 0 &&
+      strcmp(command, "delay") != 0 &&
+      strcmp(command, "invertmotion") != 0 &&
+      strcmp(command, "intervallock") != 0 &&
+      strcmp(command, "off") != 0) {
+    char errmsg[100];
+    snprintf(errmsg, sizeof(errmsg),
+             "%%%%SHADOW command \"%s\" not recognized", command);
+    event_warning(errmsg);
+  }
+
+  snprintf(msg, sizeof(msg), "shadow%s%s", command, p);
+  textfeature(DYNAMIC, msg);
+
+  if (verbose > 1) printf("event_shadow: %s\n", s);
+}
+
+/* [SPECTRAL] 2026-04-02 */
+static void event_spectral(char *s)
+{
+  char msg[256];
+  char command[40];
+  char *p;
+
+  p = s;
+  skipspace(&p);
+  readstr(command, &p, 40);
+
+  if (strcmp(command, "tilt") != 0 &&
+      strcmp(command, "cc") != 0 &&
+      strcmp(command, "off") != 0) {
+    char errmsg[100];
+    snprintf(errmsg, sizeof(errmsg),
+             "%%%%SPECTRAL command \"%s\" not recognized", command);
+    event_warning(errmsg);
+  }
+
+  snprintf(msg, sizeof(msg), "spectral%s%s", command, p);
+  textfeature(DYNAMIC, msg);
+
+  if (verbose > 1) printf("event_spectral: %s\n", s);
+}
+
 /* [DYNAMICS] 2026-04-01 */
 static void event_dynamics(char *s)
 {
@@ -2679,6 +2765,16 @@ void event_specific(char *package, char *s, int in_I)
 /* [DYNAMICS] 2026-04-01 */
    if (strcmp(package, "DYNAMICS") == 0) {
       event_dynamics(s);
+      return;
+      }
+
+   if (strcmp(package, "SPECTRAL") == 0) {
+      event_spectral(s);
+      return;
+      }
+
+   if (strcmp(package, "SHADOW") == 0) {
+      event_shadow(s);
       return;
       }
 
@@ -2879,6 +2975,16 @@ char *package, *s;
   /* [DYNAMICS] 2026-04-01 */
   if (strcmp(package, "DYNAMICS") == 0) {
     if (verbose > 1) printf("event_specific_in_header: DYNAMICS %s (stored)\n", s);
+    return;
+  }
+
+  if (strcmp(package, "SPECTRAL") == 0) {
+    if (verbose > 1) printf("event_specific_in_header: SPECTRAL %s (stored)\n", s);
+    return;
+  }
+
+  if (strcmp(package, "SHADOW") == 0) {
+    if (verbose > 1) printf("event_specific_in_header: SHADOW %s (stored)\n", s);
     return;
   }
 
@@ -6705,12 +6811,39 @@ static void apply_transforms()
 
     /* 3d: fragment - probabilistic note dropping */
     if (xf[ti].fragment_prob > 0.0 && xf[ti].fragment_prob < 1.0) {
+      int frag_bar = 1, frag_note_idx = 0, frag_first = 1;
+      if (fragmap_enabled && fragmap_file) {
+        if (!fragmap_first_voice) fprintf(fragmap_file, ",\n");
+        fprintf(fragmap_file,
+          "    \"%d\": {\n      \"transform_fragment\": {\n"
+          "        \"probability\": %.4f,\n        \"decisions\": [\n",
+          xf[ti].target_voice, xf[ti].fragment_prob);
+        fragmap_first_voice = 0;
+      }
       for (j = 0; j < t_count; j++) {
-        if (t_feature[j] == NOTE) {
-          if ((double)rand() / RAND_MAX > xf[ti].fragment_prob) {
-            t_feature[j] = REST; /* same duration, becomes silence */
-          }
+        if (t_feature[j] == SINGLE_BAR || t_feature[j] == DOUBLE_BAR) {
+          frag_bar++;
+          frag_note_idx = 0;
+          continue;
         }
+        if (t_feature[j] == NOTE) {
+          double roll = (double)rand() / RAND_MAX;
+          int survived = (roll <= xf[ti].fragment_prob) ? 1 : 0;
+          if (fragmap_enabled && fragmap_file) {
+            if (!frag_first) fprintf(fragmap_file, ",\n");
+            fprintf(fragmap_file,
+              "          {\"bar\": %d, \"noteIndex\": %d, \"survived\": %s, \"roll\": %.6f}",
+              frag_bar, frag_note_idx, survived ? "true" : "false", roll);
+            frag_first = 0;
+          }
+          if (!survived) {
+            t_feature[j] = REST;
+          }
+          frag_note_idx++;
+        }
+      }
+      if (fragmap_enabled && fragmap_file) {
+        fprintf(fragmap_file, "\n        ]\n      }\n    }");
       }
     }
 
@@ -6793,6 +6926,228 @@ static void apply_transforms()
 }
 
 
+/* [SHADOW] 2026-04-02 */
+#define SHADOW_MIRROR 0
+#define SHADOW_CONTRADICT 1
+#define SHADOW_COMMENT 2
+#define MAX_SHADOWS 16
+static void apply_shadows()
+{
+  int j, k, ti;
+  int current_voice;
+  char *s;
+  int nsh;
+  int in_voice;
+  int target_start, target_end, insert_pos;
+  int t_count;
+
+  struct shadow_desc {
+    int target_voice;
+    int source_voice;
+    int mode;
+    double probability;
+    int transpose;
+    int delay;
+    int invert_motion;
+    int interval_lock;
+  };
+  struct shadow_desc sh[MAX_SHADOWS];
+
+  static featuretype t_feature[MAX_TRANSFORM_NOTES];
+  static int t_pitch[MAX_TRANSFORM_NOTES];
+  static int t_num[MAX_TRANSFORM_NOTES];
+  static int t_denom[MAX_TRANSFORM_NOTES];
+
+  nsh = 0;
+  current_voice = -1;
+  for (j = 0; j < notes; j++) {
+    if (feature[j] == VOICE) {
+      current_voice = pitch[j];
+      continue;
+    }
+    if (feature[j] != DYNAMIC) continue;
+    s = atext[pitch[j]];
+    if (strncmp(s, "shadow", 6) != 0) continue;
+    s += 6;
+
+    if (strncmp(s, "source", 6) == 0) {
+      if (nsh >= MAX_SHADOWS) continue;
+      sh[nsh].target_voice = current_voice;
+      sh[nsh].source_voice = -1;
+      sh[nsh].mode = SHADOW_MIRROR;
+      sh[nsh].probability = 0.7;
+      sh[nsh].transpose = 0;
+      sh[nsh].delay = 0;
+      sh[nsh].invert_motion = 0;
+      sh[nsh].interval_lock = 0;
+      sscanf(s + 6, "%d", &sh[nsh].source_voice);
+      nsh++;
+    } else if (strncmp(s, "off", 3) == 0) {
+      if (nsh > 0 && sh[nsh - 1].target_voice == current_voice) nsh--;
+    } else if (nsh > 0) {
+      ti = nsh - 1;
+      if (current_voice >= 0 && sh[ti].target_voice != current_voice) continue;
+      if (strncmp(s, "mode", 4) == 0) {
+        s += 4;
+        while (*s == ' ') s++;
+        if (strncmp(s, "mirror", 6) == 0) sh[ti].mode = SHADOW_MIRROR;
+        else if (strncmp(s, "contradict", 10) == 0) sh[ti].mode = SHADOW_CONTRADICT;
+        else if (strncmp(s, "comment", 7) == 0) sh[ti].mode = SHADOW_COMMENT;
+      } else if (strncmp(s, "probability", 11) == 0) {
+        sscanf(s + 11, "%lf", &sh[ti].probability);
+      } else if (strncmp(s, "transpose", 9) == 0) {
+        sscanf(s + 9, "%d", &sh[ti].transpose);
+      } else if (strncmp(s, "delay", 5) == 0) {
+        sscanf(s + 5, "%d", &sh[ti].delay);
+      } else if (strncmp(s, "invertmotion", 12) == 0) {
+        sh[ti].invert_motion = 1;
+      } else if (strncmp(s, "intervallock", 12) == 0) {
+        sscanf(s + 12, "%d", &sh[ti].interval_lock);
+      }
+    }
+  }
+
+  if (nsh == 0) return;
+
+  for (ti = 0; ti < nsh; ti++) {
+    int prev_src_pitch, prev_shd_pitch;
+    if (sh[ti].source_voice < 0 || sh[ti].target_voice < 0) continue;
+    if (verbose > 1) printf("apply_shadows: source=%d target=%d mode=%d\n",
+                             sh[ti].source_voice, sh[ti].target_voice, sh[ti].mode);
+
+    /* collect source voice notes */
+    t_count = 0;
+    in_voice = 0;
+    for (j = 0; j < notes; j++) {
+      if (feature[j] == VOICE) {
+        in_voice = (pitch[j] == sh[ti].source_voice);
+        continue;
+      }
+      if (!in_voice) continue;
+      if (t_count >= MAX_TRANSFORM_NOTES) break;
+      if (feature[j] == NOTE || feature[j] == REST ||
+          feature[j] == SINGLE_BAR || feature[j] == DOUBLE_BAR) {
+        t_feature[t_count] = feature[j];
+        t_pitch[t_count] = pitch[j];
+        t_num[t_count] = num[j];
+        t_denom[t_count] = denom[j];
+        t_count++;
+      }
+    }
+    if (t_count == 0) continue;
+
+    /* generate shadow notes based on mode */
+    prev_src_pitch = -1;
+    prev_shd_pitch = -1;
+    for (j = 0; j < t_count; j++) {
+      if (t_feature[j] != NOTE) continue;
+
+      if (sh[ti].mode == SHADOW_COMMENT) {
+        /* only shadow notes at phrase boundaries (before rest or bar) */
+        int next = j + 1;
+        while (next < t_count && t_feature[next] != NOTE &&
+               t_feature[next] != REST && t_feature[next] != SINGLE_BAR &&
+               t_feature[next] != DOUBLE_BAR) next++;
+        if (next >= t_count || t_feature[next] == NOTE) {
+          t_feature[j] = REST;
+          continue;
+        }
+      }
+
+      /* probability filter */
+      if ((double)rand() / RAND_MAX > sh[ti].probability) {
+        t_feature[j] = REST;
+        continue;
+      }
+
+      /* pitch computation */
+      if (sh[ti].interval_lock != 0) {
+        t_pitch[j] = t_pitch[j] + sh[ti].interval_lock;
+      } else if (sh[ti].mode == SHADOW_CONTRADICT || sh[ti].invert_motion) {
+        if (prev_src_pitch >= 0 && prev_shd_pitch >= 0) {
+          int delta = t_pitch[j] - prev_src_pitch;
+          t_pitch[j] = prev_shd_pitch - delta + sh[ti].transpose;
+        } else {
+          t_pitch[j] = t_pitch[j] + sh[ti].transpose;
+        }
+      } else {
+        t_pitch[j] = t_pitch[j] + sh[ti].transpose;
+      }
+
+      if (t_pitch[j] < 0) t_pitch[j] = 0;
+      if (t_pitch[j] > 127) t_pitch[j] = 127;
+
+      prev_src_pitch = pitch[j]; /* original source pitch from feature[] */
+      prev_shd_pitch = t_pitch[j];
+    }
+
+    /* clear target voice content */
+    target_start = -1;
+    target_end = -1;
+    in_voice = 0;
+    for (j = 0; j < notes; j++) {
+      if (feature[j] == VOICE) {
+        if (pitch[j] == sh[ti].target_voice) {
+          in_voice = 1;
+          target_start = j + 1;
+        } else if (in_voice) {
+          target_end = j;
+          break;
+        }
+      }
+    }
+    if (in_voice && target_end < 0) target_end = notes;
+    if (target_start < 0) continue;
+
+    for (j = target_end - 1; j >= target_start; j--) {
+      if (feature[j] == NOTE || feature[j] == REST ||
+          feature[j] == SINGLE_BAR || feature[j] == DOUBLE_BAR) {
+        removefeature(j);
+      }
+    }
+
+    /* find insertion point */
+    insert_pos = -1;
+    in_voice = 0;
+    for (j = 0; j < notes; j++) {
+      if (feature[j] == VOICE) {
+        if (pitch[j] == sh[ti].target_voice) {
+          insert_pos = j + 1;
+          in_voice = 1;
+        } else if (in_voice) {
+          insert_pos = j;
+          break;
+        }
+      }
+    }
+    if (insert_pos < 0) continue;
+
+    while (insert_pos < notes && feature[insert_pos] != VOICE &&
+           feature[insert_pos] != NOTE && feature[insert_pos] != REST &&
+           feature[insert_pos] != SINGLE_BAR &&
+           feature[insert_pos] != DOUBLE_BAR) {
+      insert_pos++;
+    }
+
+    /* insert delay rests */
+    for (k = 0; k < sh[ti].delay; k++) {
+      insertfeature(REST, 0, time_num, time_denom, insert_pos);
+      insert_pos++;
+      insertfeature(SINGLE_BAR, 0, 0, 0, insert_pos);
+      insert_pos++;
+    }
+
+    /* insert shadow content */
+    for (j = 0; j < t_count; j++) {
+      insertfeature(t_feature[j], t_pitch[j], t_num[j], t_denom[j], insert_pos);
+      insert_pos++;
+    }
+    if (verbose > 1) printf("apply_shadows: voice %d: inserted %d features\n",
+                             sh[ti].target_voice, t_count);
+  }
+}
+
+
 static void finishfile()
 /* end of tune has been reached - write out MIDI file */
 {
@@ -6838,6 +7193,7 @@ static void finishfile()
     if (verbose > 5) dumpfeat(0,notes);
 
     apply_transforms(); /* [TRANSFORM] 2026-04-01 */
+    apply_shadows(); /* [SHADOW] 2026-04-02 */
 
     if (check) {
       Mf_putc = nullputc;
@@ -6992,8 +7348,22 @@ char *argv[];
   set_control_defaults();
 
   event_init(argc, argv, &filename);
+  if (seed_was_set) {
+    srand(global_seed);
+  } else {
+    srand((unsigned int)time(NULL));
+  }
   /* [SS] 2013-04-10 */
   if (csmfilename != NULL) read_custom_stress_file(csmfilename);
+  if (fragmap_enabled && fragmap_filename != NULL) {
+    fragmap_file = fopen(fragmap_filename, "w");
+    if (fragmap_file) {
+      fprintf(fragmap_file, "{\n  \"seed\": %u,\n  \"source\": \"%s\",\n  \"voices\": {\n",
+              global_seed, filename);
+    } else {
+      fragmap_enabled = 0;
+    }
+  }
   if (argc < 2) {
     /* printf("argc = %d\n", argc); */
   } else {
@@ -7003,6 +7373,10 @@ char *argv[];
     parsefile(filename);
     free_abbreviations();
   };
+  if (fragmap_file) {
+    fprintf(fragmap_file, "\n  }\n}\n");
+    fclose(fragmap_file);
+  }
   return(0);
 }
 

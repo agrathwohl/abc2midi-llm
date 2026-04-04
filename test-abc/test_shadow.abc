@@ -1,0 +1,52 @@
+X:1
+T:SHADOW Test - Three Shadow Modes
+M:4/4
+L:1/8
+Q:1/4=120
+K:Dmin
+% V1: Expressive source melody
+[V:1 name="Source"]
+%%MIDI program 0
+DEFG ABcd | dcBA GFED | D2F2 A2d2 | c2B2 A4 |
+DEFG ABcd | dcBA GFED | D2F2 A2d2 | d8 |
+% V2: Mirror shadow — octave up, 80% probability
+[V:2 name="Mirror+12"]
+%%MIDI program 4
+%%ENSEMBLE voice 5
+%%SHADOW source 1
+%%SHADOW mode mirror
+%%SHADOW probability 0.8
+%%SHADOW transpose 12
+% V3: Contradict — inverted motion, 2 bar delay
+[V:3 name="Contradict"]
+%%MIDI program 24
+%%ENSEMBLE voice -3
+%%SHADOW source 1
+%%SHADOW mode contradict
+%%SHADOW invertmotion
+%%SHADOW delay 2
+%%SHADOW probability 0.6
+% V4: Comment — sparse phrase-boundary response
+[V:4 name="Comment"]
+%%MIDI program 97
+%%ENSEMBLE voice 10
+%%SHADOW source 1
+%%SHADOW mode comment
+%%SHADOW probability 0.3
+%%SHADOW transpose -12
+%%SHADOW delay 1
+% V5: Bass anchor (no shadow)
+[V:5 name="Bass"]
+%%MIDI program 39
+D,4 A,4 | D,4 F,4 | D,4 A,4 | D,4 A,4 |
+D,4 A,4 | D,4 F,4 | D,4 A,4 | D,8 |
+% V6: Drums (no shadow)
+[V:6 name="Drums" clef=perc]
+%%MIDI channel 10
+%%MIDI drummap C 36
+%%MIDI drummap D 38
+%%MIDI drummap E 42
+C2E2 D2E2 C2E2 D2E2 | C2E2 D2E2 C2E2 D2E2 |
+C2E2 D2E2 C2E2 D2E2 | C2E2 D2E2 C2E2 D2E2 |
+C2E2 D2E2 C2E2 D2E2 | C2E2 D2E2 C2E2 D2E2 |
+C2E2 D2E2 C2E2 D2E2 | C4 z2 C2 C4 z4 |

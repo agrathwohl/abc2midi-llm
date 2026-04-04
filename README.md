@@ -201,6 +201,85 @@ Smooth velocity interpolation between dynamic marks. Instead of instant jumps (e
 | `%%DYNAMICS attack`        | `F` (float, default 1.0)| Velocity multiplier for the first note after a dynamic change           |
 | `%%DYNAMICS off`           |                         | Disable smooth dynamics, revert to instant changes                      |
 
+### %%SHADOW — Reactive Voice Following
+
+SHADOW generates a derived voice from a source voice with musical intelligence about HOW to follow. Declared per-voice like TRANSFORM. Three modes create different musical relationships. Processed as a pre-generation pass after TRANSFORM, so downstream directives (PNEUMA, ENSEMBLE, ARTICULATE) apply to the shadow voice independently.
+
+| Directive                  | Parameters                     | Effect                                                                  |
+|----------------------------|--------------------------------|-------------------------------------------------------------------------|
+| `%%SHADOW source`          | `N` (voice number)             | Set source voice; containing voice becomes the shadow target            |
+| `%%SHADOW mode`            | `mirror\|contradict\|comment`  | Mirror: close following. Contradict: inverted motion. Comment: phrase-boundary sparse response. |
+| `%%SHADOW probability`     | `F` (float 0.0–1.0, def 0.7)  | Fraction of source notes that generate shadow notes                     |
+| `%%SHADOW transpose`       | `N` (semitones ±)              | Fixed transposition offset                                              |
+| `%%SHADOW delay`           | `N` (bars)                     | Prepend N bars of rests before shadow content                           |
+| `%%SHADOW invertmotion`    |                                | Invert melodic direction (source up → shadow down)                      |
+| `%%SHADOW intervallock`    | `N` (semitones)                | Lock shadow at fixed interval from source (overrides transpose)         |
+| `%%SHADOW off`             |                                | Disable shadow for this voice                                           |
+
+### %%SPECTRAL — Velocity-Dependent Timbral Shift
+
+On real instruments, louder playing changes timbre (brighter, more harmonics). SPECTRAL maps note velocity to MIDI Control Change messages and/or pitch bend, approximating this behavior within MIDI constraints. Skips drum channel.
+
+| Directive           | Parameters                  | Effect                                                                 |
+|---------------------|-----------------------------|------------------------------------------------------------------------|
+| `%%SPECTRAL tilt`   | `F` (float, e.g. 0.3)      | Pitch bend proportional to velocity (louder = sharper, simulates brightness) |
+| `%%SPECTRAL cc`     | `N F` (CC# 0–127, scale)   | Emit CC N with value = velocity × F (e.g. `cc 74 0.5` for filter cutoff) |
+| `%%SPECTRAL off`    |                             | Disable all spectral mappings                                          |
+
+Up to 4 CC mappings can be active simultaneously (e.g. CC74 brightness + CC71 resonance).
+
+### Reproducible Randomness (`-seed`)
+
+All Pneuma directives (PNEUMA, ENSEMBLE, TRANSFORM fragment) use randomness to humanize output. By default, each run produces different results. The `-seed N` flag makes randomness deterministic:
+
+```
+abc2midi piece.abc -o out.mid -seed 42
+```
+
+Same seed + same ABC = identical MIDI. Each track is re-seeded with `seed + tracknum * 7919`, so adding or removing voices does not alter other voices' random sequences.
+
+This is the foundation for the MEDIOCRE evolutionary pipeline: render the same piece 100 times with seeds 1–100, analyze all renders, select the best segments across all of them.
+
+| Flag       | Parameter         | Effect                                                        |
+|------------|-------------------|---------------------------------------------------------------|
+| `-seed`    | `N` (unsigned int)| Seed the RNG for reproducible output across all directives    |
+
+Without `-seed`, the RNG is seeded from `time(NULL)` for backward-compatible non-determinism.
+
+### Fragment Map (`-fragmap`)
+
+When TRANSFORM fragment drops notes probabilistically, the specific decisions (which notes survived) are normally discarded after MIDI generation. The `-fragmap` flag writes these decisions to a JSON file:
+
+```
+abc2midi piece.abc -o out.mid -seed 42 -fragmap out_seed42.json
+```
+
+The JSON records each note's survival roll per target voice:
+
+```json
+{
+  "seed": 42,
+  "source": "piece.abc",
+  "voices": {
+    "5": {
+      "transform_fragment": {
+        "probability": 0.2,
+        "decisions": [
+          { "bar": 1, "noteIndex": 0, "survived": true, "roll": 0.142857 },
+          { "bar": 1, "noteIndex": 1, "survived": false, "roll": 0.714286 }
+        ]
+      }
+    }
+  }
+}
+```
+
+This eliminates the lossy MIDI→ABC round-trip in the MEDIOCRE evolve pipeline. Instead of converting MIDI back to ABC (which degrades notation), the pipeline reads the fragmap and applies the winning seed's fragment decisions directly to the source ABC.
+
+| Flag        | Parameter | Effect                                                          |
+|-------------|-----------|----------------------------------------------------------------|
+| `-fragmap`  | `<file>`  | Write fragment decision map as JSON for the evolve pipeline     |
+
 ## Upstream
 
 The original abcMIDI package is maintained at [sourceforge](https://sourceforge.net/projects/abc/) and on the [runabc](https://ifdo.ca/~seymour/runabc/top.html) web page.

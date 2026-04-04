@@ -67,6 +67,10 @@ float ranfrac ()
 return rand()/(float) RAND_MAX;
 }
 
+/* [SEED] 2026-04-02: reproducible randomness via -seed CLI flag */
+unsigned int global_seed = 0;
+int seed_was_set = 0;
+
 void setbeat();
 void parse_drummap(char **s); /* [SS] 2017-12-10 no more static */
 
@@ -292,6 +296,15 @@ int dynamics_target_med = 95;
 int dynamics_target_soft = 80;
 int dynamics_notes_done = 0;        /* notes played since transition start */
 int dynamics_in_transition = 0;     /* currently interpolating? */
+
+/* [SPECTRAL] 2026-04-02 */
+#define SPECTRAL_MAX_CC 4
+double spectral_tilt = 0.0;
+int spectral_cc_num[SPECTRAL_MAX_CC];
+double spectral_cc_scale[SPECTRAL_MAX_CC];
+int spectral_cc_count = 0;
+
+/* [SHADOW] 2026-04-02: no genmidi.c state needed — parsed by apply_shadows() pre-pass */
 
 /* channel 10 drum handling */
 int drum_map[256];
@@ -1804,8 +1817,29 @@ int n;
       if (vel < 1) vel = 1;
   }
 
-  if (channel == 9) noteon_data(pitch[n],bentpitch[n],channel,vel);
-  else noteon_data(pitch[n] + transpose + global_transpose, bentpitch[n], channel, vel);
+  /* [SPECTRAL] 2026-04-02: velocity-dependent CC + pitch bend */
+  {
+    int final_bend = bentpitch[n];
+    if (spectral_tilt != 0.0 && channel != 9) {
+      final_bend += (int)((vel / 127.0) * spectral_tilt * 8191.0);
+      if (final_bend > 16383) final_bend = 16383;
+      if (final_bend < 0) final_bend = 0;
+    }
+    if (spectral_cc_count > 0 && channel != 9) {
+      char ccdata[2];
+      int ci;
+      for (ci = 0; ci < spectral_cc_count; ci++) {
+        int cc_val = (int)(vel * spectral_cc_scale[ci]);
+        if (cc_val > 127) cc_val = 127;
+        if (cc_val < 0) cc_val = 0;
+        ccdata[0] = (char)spectral_cc_num[ci];
+        ccdata[1] = (char)cc_val;
+        write_event(control_change, channel, ccdata, 2);
+      }
+    }
+    if (channel == 9) noteon_data(pitch[n], final_bend, channel, vel);
+    else noteon_data(pitch[n] + transpose + global_transpose, final_bend, channel, vel);
+  }
 }
 
 static void write_program(p, channel)
@@ -2805,6 +2839,33 @@ int noteson;
       done = 1;
   }
 
+  /* [SPECTRAL] 2026-04-02 */
+  else if (strcmp(command, "spectraltilt") == 0) {
+      skipspace(&p);
+      sscanf(p, "%lf", &spectral_tilt);
+      done = 1;
+  }
+  else if (strcmp(command, "spectralcc") == 0) {
+      if (spectral_cc_count < SPECTRAL_MAX_CC) {
+          skipspace(&p);
+          spectral_cc_num[spectral_cc_count] = readnump(&p);
+          skipspace(&p);
+          sscanf(p, "%lf", &spectral_cc_scale[spectral_cc_count]);
+          spectral_cc_count++;
+      }
+      done = 1;
+  }
+  else if (strcmp(command, "spectraloff") == 0) {
+      spectral_tilt = 0.0;
+      spectral_cc_count = 0;
+      done = 1;
+  }
+
+  /* [SHADOW] 2026-04-02 — parsed by apply_shadows() pre-pass */
+  else if (strncmp(command, "shadow", 6) == 0) {
+      done = 1;
+  }
+
   if (done == 0) {
     char errmsg[80];
     sprintf(errmsg, "%%%%MIDI command \"%s\" not recognized",command);
@@ -3228,6 +3289,10 @@ static void starttrack(int tracknum)
 {
   int i;
 
+  if (seed_was_set) {
+    srand(global_seed + tracknum * 7919);
+  }
+
   loudnote = 105;
   mednote = 95;
   softnote = 80;
@@ -3268,6 +3333,8 @@ static void starttrack(int tracknum)
   dynamics_target_loud = 105;
   dynamics_target_med = 95;
   dynamics_target_soft = 80;
+  spectral_tilt = 0.0; /* [SPECTRAL] 2026-04-02 */
+  spectral_cc_count = 0;
 /* make sure meter is reinitialized for every track
  * in case it was changed in the middle of the last track */
   set_meter(header_time_num,header_time_denom);
